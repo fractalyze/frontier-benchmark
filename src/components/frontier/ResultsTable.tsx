@@ -5,7 +5,9 @@ import { cn } from "@/lib/utils";
 function Group({ title, rows }: { title: string; rows: [string, React.ReactNode][] }) {
   return (
     <div className="min-w-0">
-      <div className="mb-1.5 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">{title}</div>
+      <div className="mb-1.5 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+        {title}
+      </div>
       <dl className="grid grid-cols-[130px_minmax(0,1fr)] gap-y-1 text-[13px]">
         {rows.map(([k, v]) => (
           <Fragment key={k}>
@@ -50,7 +52,12 @@ function Detail({ r }: { r: Recipe }) {
           ["Config", <Ext href={r.configUrl}>config.yaml</Ext>],
           ["Commit", <Ext href={`#${r.commit}`}>{r.commit}</Ext>],
           ["Submission", <Ext href={`#pr-${r.pr}`}>PR #{r.pr}</Ext>],
-          ["Status", r.status === "Verified" ? "Verified" : `${r.status} — not yet reproduced by maintainers`],
+          [
+            "Status",
+            r.status === "Verified"
+              ? "Verified"
+              : `${r.status} — not yet reproduced by maintainers`,
+          ],
         ]}
       />
     </div>
@@ -104,14 +111,25 @@ export function ResultsTable({
                     out && "text-muted-foreground/60",
                   )}
                 >
-                  <td className={cn("num py-2 pr-5 pl-4 text-right", sel ? "shadow-[inset_2px_0_0_var(--primary)]" : "")}>
+                  <td
+                    className={cn(
+                      "num py-2 pr-5 pl-4 text-right",
+                      sel ? "shadow-[inset_2px_0_0_var(--primary)]" : "",
+                    )}
+                  >
                     {r.latencyS.toFixed(1)}s
                   </td>
                   <td className="num py-2 pr-5 text-right">{fmtLpips(r.lpipsMean)}</td>
                   <td className="num py-2 pr-5 text-right">{speedup(bench, r).toFixed(1)}×</td>
-                  <td className={cn("py-2 pr-5", sel ? "font-semibold" : "font-medium")}>{r.name}</td>
+                  <td className={cn("py-2 pr-5", sel ? "font-semibold" : "font-medium")}>
+                    {r.name}
+                  </td>
                   <td className="py-2 text-[12px]">
-                    {r.status === "Verified" ? "✓" : <span className="text-muted-foreground">{r.status.toLowerCase()}</span>}
+                    {r.status === "Verified" ? (
+                      "✓"
+                    ) : (
+                      <span className="text-muted-foreground">{r.status.toLowerCase()}</span>
+                    )}
                   </td>
                 </tr>
                 {open && (

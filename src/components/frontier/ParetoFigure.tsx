@@ -37,11 +37,21 @@ export function ParetoFigure({
 
   return (
     <div className="relative">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full select-none" role="img" aria-label="Pareto frontier: quality loss versus latency">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full select-none"
+        role="img"
+        aria-label="Pareto frontier: quality loss versus latency"
+      >
         {yTicks.map((t) => (
           <g key={`y${t}`}>
             <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} className="stroke-grid" />
-            <text x={PAD.l - 10} y={y(t) + 4} textAnchor="end" className="num fill-muted-foreground text-[12px]">
+            <text
+              x={PAD.l - 10}
+              y={y(t) + 4}
+              textAnchor="end"
+              className="num fill-muted-foreground text-[12px]"
+            >
               {t === 0 ? "0" : fmtLpips(t)}
             </text>
           </g>
@@ -49,26 +59,62 @@ export function ParetoFigure({
         {xTicks.map((t) => (
           <g key={`x${t}`}>
             <line x1={x(t)} x2={x(t)} y1={PAD.t} y2={H - PAD.b} className="stroke-grid" />
-            <text x={x(t)} y={H - PAD.b + 19} textAnchor="middle" className="num fill-muted-foreground text-[12px]">
+            <text
+              x={x(t)}
+              y={H - PAD.b + 19}
+              textAnchor="middle"
+              className="num fill-muted-foreground text-[12px]"
+            >
               {t}
             </text>
           </g>
         ))}
-        <line x1={PAD.l} x2={W - PAD.r} y1={H - PAD.b} y2={H - PAD.b} className="stroke-border-strong" />
+        <line
+          x1={PAD.l}
+          x2={W - PAD.r}
+          y1={H - PAD.b}
+          y2={H - PAD.b}
+          className="stroke-border-strong"
+        />
         <line x1={PAD.l} x2={PAD.l} y1={PAD.t} y2={H - PAD.b} className="stroke-border-strong" />
-        <text x={(W + PAD.l) / 2} y={H - 10} textAnchor="middle" className="fill-muted-foreground text-[13px]">
+        <text
+          x={(W + PAD.l) / 2}
+          y={H - 10}
+          textAnchor="middle"
+          className="fill-muted-foreground text-[13px]"
+        >
           E2E latency (s)
         </text>
-        <text transform={`translate(16 ${(H - PAD.b + PAD.t) / 2}) rotate(-90)`} textAnchor="middle" className="fill-muted-foreground text-[13px]">
+        <text
+          transform={`translate(16 ${(H - PAD.b + PAD.t) / 2}) rotate(-90)`}
+          textAnchor="middle"
+          className="fill-muted-foreground text-[13px]"
+        >
           Quality loss (LPIPS)
         </text>
-        <text x={PAD.l + 12} y={H - PAD.b - 10} className="fill-muted-foreground/70 text-[12px] italic">
+        <text
+          x={PAD.l + 12}
+          y={H - PAD.b - 10}
+          className="fill-muted-foreground/70 text-[12px] italic"
+        >
           ↙ better
         </text>
 
         {/* quality limit */}
-        <line x1={PAD.l} x2={W - PAD.r} y1={y(limit)} y2={y(limit)} className="stroke-foreground/40" strokeDasharray="5 4" />
-        <text x={W - PAD.r} y={y(limit) - 7} textAnchor="end" className="fill-muted-foreground text-[12px]">
+        <line
+          x1={PAD.l}
+          x2={W - PAD.r}
+          y1={y(limit)}
+          y2={y(limit)}
+          className="stroke-foreground/40"
+          strokeDasharray="5 4"
+        />
+        <text
+          x={W - PAD.r}
+          y={y(limit) - 7}
+          textAnchor="end"
+          className="fill-muted-foreground text-[12px]"
+        >
           quality limit
         </text>
 
@@ -101,7 +147,10 @@ export function ParetoFigure({
                 cx={cx}
                 cy={cy}
                 r={sel ? 6.5 : onF ? 4.5 : 4}
-                className={cn(onF || sel ? "fill-frontier" : "fill-dominated", out && !sel && "opacity-35")}
+                className={cn(
+                  onF || sel ? "fill-frontier" : "fill-dominated",
+                  out && !sel && "opacity-35",
+                )}
                 stroke="var(--background)"
                 strokeWidth={1.5}
               />
@@ -110,7 +159,10 @@ export function ParetoFigure({
                   x={cx + (right ? -12 : 12)}
                   y={cy - 10}
                   textAnchor={right ? "end" : "start"}
-                  className={cn("text-[13px]", sel ? "fill-foreground font-medium" : "fill-muted-foreground")}
+                  className={cn(
+                    "text-[13px]",
+                    sel ? "fill-foreground font-medium" : "fill-muted-foreground",
+                  )}
                 >
                   {r.name}
                 </text>
@@ -131,7 +183,8 @@ export function ParetoFigure({
         >
           <div className="max-w-64 font-medium">{hover.name}</div>
           <div className="num mt-1 text-muted-foreground">
-            {hover.latencyS.toFixed(1)}s · LPIPS {fmtLpips(hover.lpipsMean)} · {speedup(bench, hover).toFixed(1)}× faster
+            {hover.latencyS.toFixed(1)}s · LPIPS {fmtLpips(hover.lpipsMean)} ·{" "}
+            {speedup(bench, hover).toFixed(1)}× faster
           </div>
         </div>
       )}
