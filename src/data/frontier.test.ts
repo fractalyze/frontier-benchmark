@@ -1,23 +1,62 @@
 import { describe, expect, it } from "vitest";
 
-import { BENCHMARKS, fastestUnder, fmtLpips, paretoFrontier, speedup } from "@/data/frontier";
+import {
+  BENCHMARKS,
+  fastestUnder,
+  findBenchmark,
+  fmtLpips,
+  ladder,
+  lpipsOf,
+  paretoFrontier,
+  speedup,
+} from "@/data/frontier";
 
 const bench = BENCHMARKS[0]!;
 const { recipes } = bench;
+const byId = (id: string) => recipes.find((x) => x.id === id)!;
+
+describe("BENCHMARKS (loaded from data/benchmarks via import.meta.glob)", () => {
+  it("loads the qwen-image-2.1 / rtx5090 demo benchmark with 10 recipes", () => {
+    expect(findBenchmark("qwen-image-2.1", "rtx5090")).toBe(bench);
+    expect(bench.model).toBe("qwen-image-2.1");
+    expect(bench.hardware).toBe("rtx5090");
+    expect(recipes).toHaveLength(10);
+  });
+
+  it("derives baseline and updated", () => {
+    expect(bench.baseline.id).toBe("sglang-default");
+    expect(bench.baseline.metrics.latencyS).toBe(12);
+    expect(bench.updated).toBe("2026-09-21");
+  });
+
+  it("derives names from methods", () => {
+    expect(byId("sglang-default").name).toBe("Baseline");
+    expect(byId("dpcache-fp8").name).toBe("DPCache + FP8");
+    expect(byId("dpcache-fp8-sparge").name).toBe("DPCache + FP8 + SpargeAttn");
+  });
+});
+
+describe("lpipsOf", () => {
+  it("treats the baseline's null lpips as zero loss", () => {
+    expect(lpipsOf(bench.baseline)).toBe(0);
+    expect(lpipsOf(byId("dpcache-fp8"))).toBe(0.028);
+  });
+});
 
 describe("paretoFrontier", () => {
-  it("returns recipes sorted by latency with strictly decreasing lpipsMean", () => {
+  it("returns recipes sorted by latency with strictly decreasing lpips", () => {
     const frontier = paretoFrontier(recipes);
     expect(frontier.length).toBeGreaterThan(1);
     for (let i = 1; i < frontier.length; i++) {
-      expect(frontier[i]!.latencyS).toBeGreaterThanOrEqual(frontier[i - 1]!.latencyS);
-      expect(frontier[i]!.lpipsMean).toBeLessThan(frontier[i - 1]!.lpipsMean);
+      expect(frontier[i]!.metrics.latencyS).toBeGreaterThanOrEqual(
+        frontier[i - 1]!.metrics.latencyS,
+      );
+      expect(lpipsOf(frontier[i]!)).toBeLessThan(lpipsOf(frontier[i - 1]!));
     }
   });
 
-  it("includes the baseline (lpipsMean 0) as the last point", () => {
-    const frontier = paretoFrontier(recipes);
-    expect(frontier.at(-1)?.id).toBe("sglang-default");
+  it("includes the baseline as the last point", () => {
+    expect(paretoFrontier(recipes).at(-1)?.id).toBe("sglang-default");
   });
 
   it("does not mutate its input", () => {
@@ -34,7 +73,8 @@ describe("fastestUnder", () => {
     expect(fastestUnder(recipes, 1)?.id).toBe("steps20-dpcache-fp8-compile");
   });
 
-  it("returns null when no recipe satisfies the limit", () => {
+  it("falls back to the baseline at limit 0 and null when nothing qualifies", () => {
+    expect(fastestUnder(recipes, 0)?.id).toBe("sglang-default");
     expect(fastestUnder(recipes, -1)).toBeNull();
     expect(fastestUnder([], 1)).toBeNull();
   });
@@ -42,15 +82,32 @@ describe("fastestUnder", () => {
 
 describe("speedup", () => {
   it("is baseline latency over recipe latency", () => {
-    const baseline = recipes.find((x) => x.id === "sglang-default")!;
-    expect(speedup(bench, baseline)).toBe(1);
-    const dpcacheFp8 = recipes.find((x) => x.id === "dpcache-fp8")!;
-    expect(speedup(bench, dpcacheFp8)).toBeCloseTo(5);
+    expect(speedup(bench, bench.baseline)).toBe(1);
+    expect(speedup(bench, byId("dpcache-fp8"))).toBeCloseTo(5);
+  });
+});
+
+describe("ladder", () => {
+  it("defaults to the 0.01 / 0.05 / 0.1 limits", () => {
+    expect(ladder(bench).map((s) => [s.limit, s.recipe?.id])).toEqual([
+      [0.01, "dpcache"],
+      [0.05, "dpcache-fp8-sparge-compile"],
+      [0.1, "steps20-dpcache-fp8-compile"],
+    ]);
+  });
+
+  it("reports null for a limit nobody meets", () => {
+    expect(ladder(bench, [-1, 0.03])).toEqual([
+      { limit: -1, recipe: null },
+      { limit: 0.03, recipe: byId("dpcache-fp8") },
+    ]);
   });
 });
 
 describe("fmtLpips", () => {
-  it("renders 0 as an em dash and strips the leading zero otherwise", () => {
+  it("renders null/undefined/0 as an em dash and strips the leading zero otherwise", () => {
+    expect(fmtLpips(null)).toBe("—");
+    expect(fmtLpips(undefined)).toBe("—");
     expect(fmtLpips(0)).toBe("—");
     expect(fmtLpips(0.028)).toBe(".028");
     expect(fmtLpips(0.1)).toBe(".100");

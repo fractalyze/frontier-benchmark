@@ -1,0 +1,38 @@
+{
+  "id": "teacache",
+  "engine": {
+    "name": "sglang-diffusion",
+    "version": "0.5.0"
+  },
+  "optimization": [
+    {
+      "technique": "Feature Caching",
+      "method": "TeaCache"
+    }
+  ],
+  "configuration": ["rel_l1_thresh 0.25"],
+  "configPath": null,
+  "metrics": {
+    "latencyS": 4.9,
+    "throughputImgS": 0.33,
+    "peakVramGb": 23.9,
+    "lpips": {
+      "mean": 0.031,
+      "p95": 0.061
+    },
+    "psnr": {
+      "mean": 31.4
+    },
+    "ssim": {
+      "mean": 0.905
+    },
+    "imageReward": {
+      "mean": 0.92
+    }
+  },
+  "status": "Experimental",
+  "measuredOn": "public",
+  "date": "2026-09-21",
+  "commit": null,
+  "pr": null
+}

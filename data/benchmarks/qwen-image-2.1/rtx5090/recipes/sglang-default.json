@@ -1,0 +1,26 @@
+{
+  "id": "sglang-default",
+  "engine": {
+    "name": "sglang-diffusion",
+    "version": "0.5.0"
+  },
+  "optimization": [],
+  "configuration": ["50 steps · FlowMatch Euler", "BF16"],
+  "configPath": null,
+  "metrics": {
+    "latencyS": 12,
+    "throughputImgS": 0.13,
+    "peakVramGb": 23.4,
+    "lpips": null,
+    "psnr": null,
+    "ssim": null,
+    "imageReward": {
+      "mean": 0.95
+    }
+  },
+  "status": "Experimental",
+  "measuredOn": "public",
+  "date": "2026-09-21",
+  "commit": null,
+  "pr": null
+}

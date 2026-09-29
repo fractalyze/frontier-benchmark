@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef } from "react";
-import { fmtLpips, speedup, type Benchmark, type Recipe } from "@/data/frontier";
+import { fmtLpips, lpipsOf, speedup, type Benchmark, type Recipe } from "@/data/frontier";
+import { commitUrl, fileUrl, prUrl } from "@/data/site";
 import { cn } from "@/lib/utils";
 
 function Group({ title, rows }: { title: string; rows: [string, React.ReactNode][] }) {
@@ -40,18 +41,18 @@ function Detail({ r }: { r: Recipe }) {
       <Group
         title="Benchmark"
         rows={[
-          ["Latency", <span className="num">{r.latencyS.toFixed(1)}s</span>],
-          ["LPIPS mean", <span className="num">{fmtLpips(r.lpipsMean)}</span>],
-          ["LPIPS p95", <span className="num">{fmtLpips(r.lpipsP95)}</span>],
-          ["Peak VRAM", <span className="num">{r.peakVramGb.toFixed(1)} GB</span>],
+          ["Latency", <span className="num">{r.metrics.latencyS.toFixed(1)}s</span>],
+          ["LPIPS mean", <span className="num">{fmtLpips(r.metrics.lpips?.mean)}</span>],
+          ["LPIPS p95", <span className="num">{fmtLpips(r.metrics.lpips?.p95)}</span>],
+          ["Peak VRAM", <span className="num">{r.metrics.peakVramGb.toFixed(1)} GB</span>],
         ]}
       />
       <Group
         title="Reproducibility"
         rows={[
-          ["Config", <Ext href={r.configUrl}>config.yaml</Ext>],
-          ["Commit", <Ext href={`#${r.commit}`}>{r.commit}</Ext>],
-          ["Submission", <Ext href={`#pr-${r.pr}`}>PR #{r.pr}</Ext>],
+          ["Config", r.configPath ? <Ext href={fileUrl(r.configPath)}>config.yaml</Ext> : "—"],
+          ["Commit", r.commit ? <Ext href={commitUrl(r.commit)}>{r.commit.slice(0, 7)}</Ext> : "—"],
+          ["Submission", r.pr ? <Ext href={prUrl(r.pr)}>PR #{r.pr}</Ext> : "—"],
           [
             "Status",
             r.status === "Verified"
@@ -77,7 +78,7 @@ export function ResultsTable({
   openId: string | null;
   onSelect: (id: string) => void;
 }) {
-  const rows = [...bench.recipes].sort((a, b) => a.latencyS - b.latencyS);
+  const rows = [...bench.recipes].sort((a, b) => a.metrics.latencyS - b.metrics.latencyS);
   const openRef = useRef<HTMLTableRowElement>(null);
   useEffect(() => {
     openRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -99,7 +100,7 @@ export function ResultsTable({
         <tbody>
           {rows.map((r) => {
             const sel = r.id === selectedId;
-            const out = r.lpipsMean > limit;
+            const out = lpipsOf(r) > limit;
             const open = r.id === openId;
             return (
               <Fragment key={r.id}>
@@ -117,9 +118,9 @@ export function ResultsTable({
                       sel ? "shadow-[inset_2px_0_0_var(--primary)]" : "",
                     )}
                   >
-                    {r.latencyS.toFixed(1)}s
+                    {r.metrics.latencyS.toFixed(1)}s
                   </td>
-                  <td className="num py-2 pr-5 text-right">{fmtLpips(r.lpipsMean)}</td>
+                  <td className="num py-2 pr-5 text-right">{fmtLpips(lpipsOf(r))}</td>
                   <td className="num py-2 pr-5 text-right">{speedup(bench, r).toFixed(1)}×</td>
                   <td className={cn("py-2 pr-5", sel ? "font-semibold" : "font-medium")}>
                     {r.name}

@@ -1,0 +1,25 @@
+{
+  "model": "qwen-image-2.1",
+  "hardware": "rtx5090",
+  "protocol": {
+    "version": "v0.3",
+    "resolution": "1024x1024",
+    "batch": 1,
+    "steps": 50,
+    "precision": "BF16"
+  },
+  "promptSets": {
+    "public": {
+      "name": "public-v1",
+      "count": 100,
+      "path": "data/prompts/public-v1.txt"
+    },
+    "held-out": {
+      "name": "held-out-v1",
+      "count": 100
+    }
+  },
+  "throughputConcurrency": 4,
+  "warmupRuns": 3,
+  "baselineRecipe": "sglang-default"
+}

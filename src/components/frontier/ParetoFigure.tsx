@@ -1,5 +1,12 @@
 import { useMemo, useState } from "react";
-import { fmtLpips, paretoFrontier, speedup, type Benchmark, type Recipe } from "@/data/frontier";
+import {
+  fmtLpips,
+  lpipsOf,
+  paretoFrontier,
+  speedup,
+  type Benchmark,
+  type Recipe,
+} from "@/data/frontier";
 import { cn } from "@/lib/utils";
 
 const W = 1180;
@@ -22,8 +29,8 @@ export function ParetoFigure({
   const { xMax, yMax, frontier, frontierIds } = useMemo(() => {
     const f = paretoFrontier(recipes);
     return {
-      xMax: Math.max(...recipes.map((r) => r.latencyS)) * 1.08,
-      yMax: Math.max(0.1, ...recipes.map((r) => r.lpipsMean)) * 1.12,
+      xMax: Math.max(...recipes.map((r) => r.metrics.latencyS)) * 1.08,
+      yMax: Math.max(0.1, ...recipes.map(lpipsOf)) * 1.12,
       frontier: f,
       frontierIds: new Set(f.map((r) => r.id)),
     };
@@ -119,7 +126,7 @@ export function ParetoFigure({
         </text>
 
         <polyline
-          points={frontier.map((r) => `${x(r.latencyS)},${y(r.lpipsMean)}`).join(" ")}
+          points={frontier.map((r) => `${x(r.metrics.latencyS)},${y(lpipsOf(r))}`).join(" ")}
           fill="none"
           className="stroke-frontier"
           strokeOpacity={0.55}
@@ -129,9 +136,9 @@ export function ParetoFigure({
         {recipes.map((r) => {
           const onF = frontierIds.has(r.id);
           const sel = r.id === selectedId;
-          const out = r.lpipsMean > limit;
-          const cx = x(r.latencyS);
-          const cy = y(r.lpipsMean);
+          const out = lpipsOf(r) > limit;
+          const cx = x(r.metrics.latencyS);
+          const cy = y(lpipsOf(r));
           const right = cx > W * 0.7;
           return (
             <g
@@ -176,14 +183,14 @@ export function ParetoFigure({
         <div
           className="pointer-events-none absolute z-20 rounded-sm border border-border bg-popover px-2.5 py-2 text-[12px]"
           style={{
-            left: `${(x(hover.latencyS) / W) * 100}%`,
-            top: `${(y(hover.lpipsMean) / H) * 100}%`,
-            transform: `translate(${x(hover.latencyS) > W * 0.6 ? "calc(-100% - 14px)" : "14px"}, -50%)`,
+            left: `${(x(hover.metrics.latencyS) / W) * 100}%`,
+            top: `${(y(lpipsOf(hover)) / H) * 100}%`,
+            transform: `translate(${x(hover.metrics.latencyS) > W * 0.6 ? "calc(-100% - 14px)" : "14px"}, -50%)`,
           }}
         >
           <div className="max-w-64 font-medium">{hover.name}</div>
           <div className="num mt-1 text-muted-foreground">
-            {hover.latencyS.toFixed(1)}s · LPIPS {fmtLpips(hover.lpipsMean)} ·{" "}
+            {hover.metrics.latencyS.toFixed(1)}s · LPIPS {fmtLpips(lpipsOf(hover))} ·{" "}
             {speedup(bench, hover).toFixed(1)}× faster
           </div>
         </div>

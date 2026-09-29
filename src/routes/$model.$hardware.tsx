@@ -4,7 +4,9 @@ import {
   fastestUnder,
   findBenchmark,
   fmtLpips,
+  fmtResolution,
   hardwareBySlug,
+  lpipsOf,
   modelBySlug,
   speedup,
 } from "@/data/frontier";
@@ -74,8 +76,8 @@ function BenchmarkPage() {
       <section className="pt-8">
         <IdentitySelect model={bench.model} hardware={bench.hardware} />
         <p className="num mt-2 text-[12px] text-muted-foreground">
-          {bench.resolution} · Batch {bench.batch} · {bench.training} · {bench.protocol} ·{" "}
-          {bench.date}
+          {fmtResolution(bench.protocol.resolution)} · Batch {bench.protocol.batch} · protocol{" "}
+          {bench.protocol.version} · {bench.updated}
           <span className="ml-3 text-experimental">demo data</span>
         </p>
       </section>
@@ -111,7 +113,7 @@ function BenchmarkPage() {
           {selected ? (
             <div className="min-w-0 text-[14px]">
               <span className="num font-medium">
-                {selected.latencyS.toFixed(1)}s · LPIPS {fmtLpips(selected.lpipsMean)} ·{" "}
+                {selected.metrics.latencyS.toFixed(1)}s · LPIPS {fmtLpips(lpipsOf(selected))} ·{" "}
                 {speedup(bench, selected).toFixed(1)}×
               </span>
               <span className="ml-3 text-muted-foreground">{selected.name}</span>
