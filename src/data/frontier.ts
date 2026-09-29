@@ -170,6 +170,9 @@ export const fastestUnder = (recipes: Recipe[], limit: number) =>
     .filter((x) => lpipsOf(x) <= limit)
     .sort((a, b) => a.metrics.latencyS - b.metrics.latencyS)[0] ?? null;
 
+/** Quality-limit buttons on the benchmark page (the ladder keeps its own coarser default). */
+export const QUALITY_LIMITS = [0.01, 0.03, 0.05, 0.1];
+
 export const ladder = (b: Benchmark, limits: number[] = [0.01, 0.05, 0.1]) =>
   limits.map((limit) => ({ limit, recipe: fastestUnder(b.recipes, limit) }));
 

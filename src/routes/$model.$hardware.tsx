@@ -8,8 +8,10 @@ import {
   hardwareBySlug,
   lpipsOf,
   modelBySlug,
+  QUALITY_LIMITS,
   speedup,
 } from "@/data/frontier";
+import { REPO_URL } from "@/data/site";
 import { SiteShell } from "@/components/frontier/SiteShell";
 import { IdentitySelect } from "@/components/frontier/IdentitySelect";
 import { ParetoFigure } from "@/components/frontier/ParetoFigure";
@@ -50,8 +52,6 @@ export const Route = createFileRoute("/$model/$hardware")({
   component: BenchmarkPage,
 });
 
-const LIMITS = [0.01, 0.03, 0.05, 0.1];
-
 function BenchmarkPage() {
   const { bench } = Route.useLoaderData();
   const [limit, setLimit] = useState(0.05);
@@ -76,8 +76,16 @@ function BenchmarkPage() {
       <section className="pt-8">
         <IdentitySelect model={bench.model} hardware={bench.hardware} />
         <p className="num mt-2 text-[12px] text-muted-foreground">
-          {fmtResolution(bench.protocol.resolution)} · Batch {bench.protocol.batch} · protocol{" "}
-          {bench.protocol.version} · {bench.updated}
+          {[
+            fmtResolution(bench.protocol.resolution),
+            `batch ${bench.protocol.batch}`,
+            `${bench.protocol.steps} steps`,
+            bench.protocol.precision,
+            `protocol ${bench.protocol.version}`,
+            `${bench.promptSets.public.count} public prompts`,
+            `${bench.throughputConcurrency} concurrent`,
+            `updated ${bench.updated}`,
+          ].join(" · ")}
           <span className="ml-3 text-experimental">demo data</span>
         </p>
       </section>
@@ -95,7 +103,7 @@ function BenchmarkPage() {
             <span className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
               Quality limit
             </span>
-            {LIMITS.map((l) => (
+            {QUALITY_LIMITS.map((l) => (
               <button
                 key={l}
                 onClick={() => changeLimit(l)}
@@ -146,7 +154,9 @@ function BenchmarkPage() {
           <span className="text-foreground">Submit a reproducible recipe through GitHub.</span>
         </p>
         <a
-          href="#"
+          href={REPO_URL}
+          target="_blank"
+          rel="noreferrer"
           className="mt-3 inline-block rounded-sm border border-foreground/70 px-3 py-1 text-[13px] hover:bg-surface-alt"
         >
           Submit via GitHub ↗

@@ -22,7 +22,7 @@ const text = z.string().min(1);
 // fileUrl() concatenates this onto blob/main/ as-is.
 const repoPath = z
   .string()
-  .regex(/^(?!\/)(?!.*(^|\/)\.\.(\/|$))\S+$/, "expected a repo-relative path");
+  .regex(/^(?!\/)(?!.*(^|\/)\.\.(\/|$))\S*[^\s/]$/, "expected a repo-relative file path");
 const posInt = z.number().int().positive();
 const pos = z.number().positive();
 const nonneg = z.number().nonnegative();

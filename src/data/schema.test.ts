@@ -153,11 +153,14 @@ describe("loader rejects", () => {
 
 describe("schema rejects paths that fileUrl() cannot link", () => {
   const recipe = () => structuredClone(recipeIn(files, "dpcache-fp8"));
-  it.each(["/abs/config.yaml", "../escape.yaml", "a/../b.yaml", "has space.yaml"])("%s", (p) => {
-    const r = recipe();
-    r["configPath"] = p;
-    expect(RecipeFileSchema.safeParse(r).success).toBe(false);
-  });
+  it.each(["/abs/config.yaml", "../escape.yaml", "a/../b.yaml", "has space.yaml", "configs/"])(
+    "%s",
+    (p) => {
+      const r = recipe();
+      r["configPath"] = p;
+      expect(RecipeFileSchema.safeParse(r).success).toBe(false);
+    },
+  );
   it("accepts recipes/dpcache-fp8.yaml", () => {
     const r = recipe();
     r["configPath"] = "data/benchmarks/qwen-image-2.1/rtx5090/recipes/dpcache-fp8.yaml";
