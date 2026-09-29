@@ -11,11 +11,12 @@ export function SiteShell({ children }: { children: ReactNode }) {
             Inference Frontier
           </Link>
           <nav className="flex gap-5 text-[13px] text-muted-foreground">
-            {["Methodology", "Submit"].map((l) => (
-              <a key={l} href="#" className="hover:text-foreground">
-                {l}
-              </a>
-            ))}
+            <Link to="/" hash="methodology" className="hover:text-foreground">
+              Methodology
+            </Link>
+            <Link to="/" hash="submit" className="hover:text-foreground">
+              Submit
+            </Link>
             <a href={REPO_URL} target="_blank" rel="noreferrer" className="hover:text-foreground">
               GitHub
             </a>

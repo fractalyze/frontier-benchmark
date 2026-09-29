@@ -4,7 +4,9 @@ import {
   BENCHMARKS,
   fastestUnder,
   findBenchmark,
+  fmtLimit,
   fmtLpips,
+  isDemo,
   ladder,
   lpipsOf,
   paretoFrontier,
@@ -111,5 +113,21 @@ describe("fmtLpips", () => {
     expect(fmtLpips(0)).toBe("—");
     expect(fmtLpips(0.028)).toBe(".028");
     expect(fmtLpips(0.1)).toBe(".100");
+  });
+});
+
+describe("fmtLimit", () => {
+  it("renders quality limits with two decimals and no leading zero", () => {
+    expect(fmtLimit(0.01)).toBe(".01");
+    expect(fmtLimit(0.05)).toBe(".05");
+    expect(fmtLimit(0.1)).toBe(".10");
+  });
+});
+
+describe("isDemo", () => {
+  it("is true only while every recipe is Experimental", () => {
+    expect(isDemo(bench)).toBe(true);
+    const verified = { ...bench.baseline, status: "Verified" as const };
+    expect(isDemo({ ...bench, recipes: [verified, ...recipes.slice(1)] })).toBe(false);
   });
 });

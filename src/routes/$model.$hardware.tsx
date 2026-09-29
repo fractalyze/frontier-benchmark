@@ -3,9 +3,11 @@ import { useState } from "react";
 import {
   fastestUnder,
   findBenchmark,
+  fmtLimit,
   fmtLpips,
   fmtResolution,
   hardwareBySlug,
+  isDemo,
   lpipsOf,
   modelBySlug,
   QUALITY_LIMITS,
@@ -86,7 +88,7 @@ function BenchmarkPage() {
             `${bench.throughputConcurrency} concurrent`,
             `updated ${bench.updated}`,
           ].join(" · ")}
-          <span className="ml-3 text-experimental">demo data</span>
+          {isDemo(bench) && <span className="ml-3 text-experimental">demo data</span>}
         </p>
       </section>
 
@@ -114,7 +116,7 @@ function BenchmarkPage() {
                     : "border-transparent text-muted-foreground hover:text-foreground",
                 )}
               >
-                ≤ {l.toFixed(2).replace(/^0/, "")}
+                ≤ {fmtLimit(l)}
               </button>
             ))}
           </div>
@@ -142,9 +144,11 @@ function BenchmarkPage() {
           openId={openId}
           onSelect={select}
         />
-        <p className="mt-2 text-[12px] text-muted-foreground">
-          All numbers are demo placeholders, not benchmark results.
-        </p>
+        {isDemo(bench) && (
+          <p className="mt-2 text-[12px] text-muted-foreground">
+            All numbers are demo placeholders, not benchmark results.
+          </p>
+        )}
       </section>
 
       <section className="mt-14 border-t border-border pt-5">
