@@ -34,7 +34,7 @@ const metricsOf = (r: Json) => r["metrics"] as Json;
 describe("every file under data/benchmarks validates", () => {
   it("finds the demo benchmark and its recipes", () => {
     expect(names).toContain(`${DEMO}/benchmark.json`);
-    expect(names.filter((f) => f.startsWith(`${DEMO}/recipes/`))).toHaveLength(5);
+    expect(names.filter((f) => f.startsWith(`${DEMO}/recipes/`))).toHaveLength(9);
   });
 
   it.each(names.filter((f) => f.endsWith("/benchmark.json")))("%s", (f) => {
@@ -48,7 +48,7 @@ describe("every file under data/benchmarks validates", () => {
   it("passes the loader's cross-file rules", () => {
     const [bench] = buildBenchmarks(files);
     expect(bench?.baseline.id).toBe("sglang-native");
-    expect(bench?.recipes).toHaveLength(5);
+    expect(bench?.recipes).toHaveLength(9);
   });
 });
 

@@ -1,6 +1,13 @@
-import { Fragment, useEffect, useRef } from "react";
+import { Fragment } from "react";
 import { fmtLpips, lpipsOf, speedup, type Benchmark, type Recipe } from "@/data/frontier";
 import { fileUrl, prUrl } from "@/data/site";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 const DASH = "—";
@@ -46,7 +53,7 @@ const Num = ({ children }: { children: React.ReactNode }) => (
 function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
   const m = r.metrics;
   return (
-    <div className="grid gap-6 py-4 pr-2 pl-5 md:grid-cols-3">
+    <div className="grid gap-6 sm:grid-cols-2">
       <Group
         title="Optimization"
         rows={
@@ -72,33 +79,86 @@ function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
           ["Peak VRAM", <Num>{m.peakVramGb ? `${m.peakVramGb.toFixed(1)} GB` : DASH}</Num>],
         ]}
       />
-      <Group
-        title="Reproducibility"
-        rows={[
-          [
-            "Config",
-            r.configPath ? <Ext href={fileUrl(r.configPath)}>{basename(r.configPath)}</Ext> : DASH,
-          ],
-          [
-            "Engine",
-            r.engine.url ? (
-              <Ext href={r.engine.url}>{`${r.engine.name} ${r.engine.version}`}</Ext>
-            ) : (
-              <Num>{`${r.engine.name} ${r.engine.version}`}</Num>
-            ),
-          ],
-          ["Source", r.sourceUrl ? <Ext href={r.sourceUrl}>report</Ext> : DASH],
-          ["Submission", r.pr ? <Ext href={prUrl(r.pr)}>PR #{r.pr}</Ext> : DASH],
-          [
-            "Status",
-            r.status === "Verified"
-              ? "Verified"
-              : `${r.status} — not yet reproduced by maintainers`,
-          ],
-          ["Measured on", <Num>{measuredOnText(bench, r)}</Num>],
-        ]}
-      />
+      {r.configuration.length > 0 && (
+        <div className="sm:col-span-2">
+          <div className="mb-1.5 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+            Configuration
+          </div>
+          <ul className="list-disc space-y-0.5 pl-4 text-[13px]">
+            {r.configuration.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className="sm:col-span-2">
+        <Group
+          title="Reproducibility"
+          rows={[
+            [
+              "Config",
+              r.configPath ? (
+                <Ext href={fileUrl(r.configPath)}>{basename(r.configPath)}</Ext>
+              ) : (
+                DASH
+              ),
+            ],
+            [
+              "Engine",
+              r.engine.url ? (
+                <Ext href={r.engine.url}>{`${r.engine.name} ${r.engine.version}`}</Ext>
+              ) : (
+                <Num>{`${r.engine.name} ${r.engine.version}`}</Num>
+              ),
+            ],
+            ["Source", r.sourceUrl ? <Ext href={r.sourceUrl}>report</Ext> : DASH],
+            ["Submission", r.pr ? <Ext href={prUrl(r.pr)}>PR #{r.pr}</Ext> : DASH],
+            [
+              "Status",
+              r.status === "Verified"
+                ? "Verified"
+                : `${r.status} — not yet reproduced by maintainers`,
+            ],
+            ["Measured on", <Num>{measuredOnText(bench, r)}</Num>],
+          ]}
+        />
+      </div>
     </div>
+  );
+}
+
+/** The detail of one recipe, as a modal so the table underneath keeps its layout. */
+export function RecipeDialog({
+  bench,
+  recipe,
+  onClose,
+}: {
+  bench: Benchmark;
+  recipe: Recipe | null;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open={recipe !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        {recipe && (
+          <>
+            <DialogHeader className="pr-6">
+              <DialogTitle className="text-[18px] font-semibold tracking-tight">
+                {recipe.name}
+              </DialogTitle>
+              <DialogDescription className="num text-[13px]">
+                {[
+                  `${recipe.metrics.latencyS.toFixed(1)}s`,
+                  `${speedup(bench, recipe).toFixed(1)}× faster`,
+                  `LPIPS ${fmtLpips(lpipsOf(recipe))}`,
+                ].join(" · ")}
+              </DialogDescription>
+            </DialogHeader>
+            <Detail bench={bench} r={recipe} />
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -108,18 +168,20 @@ export function ResultsTable({
   selectedId,
   openId,
   onSelect,
+  onClose,
 }: {
   bench: Benchmark;
   limit: number;
   selectedId: string | null;
+  /** Recipe whose detail dialog is open. */
   openId: string | null;
   onSelect: (id: string) => void;
+  onClose: () => void;
 }) {
-  const rows = [...bench.recipes].sort((a, b) => a.metrics.latencyS - b.metrics.latencyS);
-  const openRef = useRef<HTMLTableRowElement>(null);
-  useEffect(() => {
-    openRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [openId]);
+  const sorted = [...bench.recipes].sort((a, b) => a.metrics.latencyS - b.metrics.latencyS);
+  const rows = sorted.filter((r) => lpipsOf(r) <= limit);
+  const hidden = sorted.length - rows.length;
+  const open = bench.recipes.find((r) => r.id === openId) ?? null;
   const th = "py-2 pr-5 text-[11px] font-medium tracking-wider text-muted-foreground uppercase";
 
   return (
@@ -138,59 +200,45 @@ export function ResultsTable({
         <tbody>
           {rows.map((r) => {
             const sel = r.id === selectedId;
-            const out = lpipsOf(r) > limit;
-            const open = r.id === openId;
             return (
-              <Fragment key={r.id}>
-                <tr
-                  ref={open ? openRef : undefined}
-                  onClick={() => onSelect(r.id)}
+              <tr
+                key={r.id}
+                onClick={() => onSelect(r.id)}
+                className="cursor-pointer border-b border-border transition-colors hover:bg-surface-alt"
+              >
+                <td
                   className={cn(
-                    "cursor-pointer border-b border-border transition-colors hover:bg-surface-alt",
-                    out && "text-muted-foreground/60",
+                    "num py-2 pr-5 pl-4 text-right",
+                    sel ? "shadow-[inset_2px_0_0_var(--primary)]" : "",
                   )}
                 >
-                  <td
-                    className={cn(
-                      "num py-2 pr-5 pl-4 text-right",
-                      sel ? "shadow-[inset_2px_0_0_var(--primary)]" : "",
-                    )}
-                  >
-                    {r.metrics.latencyS.toFixed(1)}s
-                  </td>
-                  <td className="num py-2 pr-5 text-right">{fmtLpips(lpipsOf(r))}</td>
-                  <td className="num py-2 pr-5 text-right">{speedup(bench, r).toFixed(1)}×</td>
-                  <td className={cn("py-2 pr-5", sel ? "font-semibold" : "font-medium")}>
-                    {r.name}
-                  </td>
-                  <td
-                    className={cn(
-                      "num py-2 pr-5 text-[12px] whitespace-nowrap",
-                      !out && "text-muted-foreground",
-                    )}
-                  >
-                    {`${r.engine.name} ${r.engine.version}`}
-                  </td>
-                  <td className="py-2 text-[12px]">
-                    {r.status === "Verified" ? (
-                      "✓"
-                    ) : (
-                      <span className="text-muted-foreground">{r.status.toLowerCase()}</span>
-                    )}
-                  </td>
-                </tr>
-                {open && (
-                  <tr className="border-b border-border">
-                    <td colSpan={6} className="shadow-[inset_2px_0_0_var(--primary)]">
-                      <Detail bench={bench} r={r} />
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
+                  {r.metrics.latencyS.toFixed(1)}s
+                </td>
+                <td className="num py-2 pr-5 text-right">{fmtLpips(lpipsOf(r))}</td>
+                <td className="num py-2 pr-5 text-right">{speedup(bench, r).toFixed(1)}×</td>
+                <td className={cn("py-2 pr-5", sel ? "font-semibold" : "font-medium")}>{r.name}</td>
+                <td className="num py-2 pr-5 text-[12px] whitespace-nowrap text-muted-foreground">
+                  {`${r.engine.name} ${r.engine.version}`}
+                </td>
+                <td className="py-2 text-[12px]">
+                  {r.status === "Verified" ? (
+                    "✓"
+                  ) : (
+                    <span className="text-muted-foreground">{r.status.toLowerCase()}</span>
+                  )}
+                </td>
+              </tr>
             );
           })}
         </tbody>
       </table>
+      {hidden > 0 && (
+        <p className="num mt-2 pl-4 text-[12px] text-muted-foreground">
+          {hidden} {hidden === 1 ? "recipe" : "recipes"} above LPIPS {fmtLpips(limit)} hidden —
+          raise the limit on the chart to see {hidden === 1 ? "it" : "them"}.
+        </p>
+      )}
+      <RecipeDialog bench={bench} recipe={open} onClose={onClose} />
     </div>
   );
 }

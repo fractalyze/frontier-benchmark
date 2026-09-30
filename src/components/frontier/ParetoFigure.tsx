@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   fmtLpips,
   lpipsOf,
@@ -12,19 +12,29 @@ import { cn } from "@/lib/utils";
 const W = 1180;
 const H = 500;
 const PAD = { l: 64, r: 24, t: 18, b: 52 };
+/** The requirement line moves in LPIPS units of this size (arrow keys, drag rounding). */
+export const LIMIT_STEP = 0.005;
+const LIMIT_MIN = LIMIT_STEP;
+
+const clampTo = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+const roundStep = (v: number) => +(Math.round(v / LIMIT_STEP) * LIMIT_STEP).toFixed(3);
 
 export function ParetoFigure({
   bench,
   limit,
   selectedId,
   onSelect,
+  onLimitChange,
 }: {
   bench: Benchmark;
   limit: number;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** The quality requirement was dragged or nudged; always a multiple of LIMIT_STEP. */
+  onLimitChange: (limit: number) => void;
 }) {
   const recipes = bench.recipes;
+  const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<Recipe | null>(null);
   const { xMax, yMax, frontier, frontierIds } = useMemo(() => {
     const f = paretoFrontier(recipes);
@@ -38,18 +48,43 @@ export function ParetoFigure({
 
   const x = (v: number) => PAD.l + (v / xMax) * (W - PAD.l - PAD.r);
   const y = (v: number) => H - PAD.b - (v / yMax) * (H - PAD.t - PAD.b);
+  const fromY = (py: number) => ((H - PAD.b - py) / (H - PAD.t - PAD.b)) * yMax;
   const xTicks = ticks(xMax, 2);
   const yTicks = ticks(yMax, 0.02);
-  const labelled = new Set(["sglang-default", selectedId ?? ""]);
+  const labelled = new Set([bench.baselineRecipe, selectedId ?? ""]);
+  const limitMax = roundStep(yMax - LIMIT_STEP);
+  const clampLimit = (v: number) => clampTo(roundStep(v), LIMIT_MIN, limitMax);
+
+  const limitFromPointer = (e: React.PointerEvent) => {
+    const svg = svgRef.current;
+    const ctm = svg?.getScreenCTM();
+    if (!svg || !ctm) return limit;
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    return clampLimit(fromY(pt.matrixTransform(ctm.inverse()).y));
+  };
+  const nudge = (delta: number) => onLimitChange(clampLimit(limit + delta));
+  const ly = y(limit);
+  const tag = `LPIPS ≤ ${fmtLpips(limit)}`;
 
   return (
     <div className="relative">
       <svg
+        ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
-        className="w-full select-none"
+        className="w-full touch-none select-none"
         role="img"
         aria-label="Pareto frontier: quality loss versus latency"
       >
+        {/* everything at or below the requirement qualifies */}
+        <rect
+          x={PAD.l}
+          y={ly}
+          width={W - PAD.l - PAD.r}
+          height={H - PAD.b - ly}
+          className="fill-frontier/6"
+        />
         {yTicks.map((t) => (
           <g key={`y${t}`}>
             <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} className="stroke-grid" />
@@ -107,24 +142,6 @@ export function ParetoFigure({
           ↙ better
         </text>
 
-        {/* quality limit */}
-        <line
-          x1={PAD.l}
-          x2={W - PAD.r}
-          y1={y(limit)}
-          y2={y(limit)}
-          className="stroke-foreground/40"
-          strokeDasharray="5 4"
-        />
-        <text
-          x={W - PAD.r}
-          y={y(limit) - 7}
-          textAnchor="end"
-          className="fill-muted-foreground text-[12px]"
-        >
-          quality limit
-        </text>
-
         <polyline
           points={frontier.map((r) => `${x(r.metrics.latencyS)},${y(lpipsOf(r))}`).join(" ")}
           fill="none"
@@ -177,6 +194,75 @@ export function ParetoFigure({
             </g>
           );
         })}
+
+        {/* the quality requirement: drag the line, or focus it and use the arrow keys */}
+        <g
+          transform={`translate(0 ${ly})`}
+          role="slider"
+          tabIndex={0}
+          aria-label="Quality limit: maximum acceptable LPIPS"
+          aria-valuemin={LIMIT_MIN}
+          aria-valuemax={limitMax}
+          aria-valuenow={limit}
+          aria-valuetext={tag}
+          className="cursor-ns-resize outline-none"
+          onPointerDown={(e) => {
+            e.currentTarget.setPointerCapture(e.pointerId);
+            onLimitChange(limitFromPointer(e));
+          }}
+          onPointerMove={(e) => {
+            if (e.currentTarget.hasPointerCapture(e.pointerId)) onLimitChange(limitFromPointer(e));
+          }}
+          onKeyDown={(e) => {
+            const step = e.shiftKey ? LIMIT_STEP * 4 : LIMIT_STEP;
+            if (e.key === "ArrowUp" || e.key === "ArrowRight") nudge(step);
+            else if (e.key === "ArrowDown" || e.key === "ArrowLeft") nudge(-step);
+            else return;
+            e.preventDefault();
+          }}
+        >
+          <rect
+            x={PAD.l - 8}
+            y={-16}
+            width={W - PAD.l - PAD.r + 16}
+            height={32}
+            fill="transparent"
+          />
+          <line
+            x1={PAD.l}
+            x2={W - PAD.r - 132}
+            y1={0}
+            y2={0}
+            className="stroke-foreground"
+            strokeWidth={1.3}
+            strokeDasharray="5 4"
+          />
+          <rect
+            x={W - PAD.r - 124}
+            y={-12}
+            width={124}
+            height={24}
+            rx={12}
+            className="fill-foreground"
+          />
+          <text
+            x={W - PAD.r - 62}
+            y={4.5}
+            textAnchor="middle"
+            className="num fill-background text-[12px] font-medium"
+          >
+            {tag}
+          </text>
+          <rect
+            x={PAD.l + 150}
+            y={-6}
+            width={30}
+            height={12}
+            rx={6}
+            className="fill-background stroke-foreground"
+            strokeWidth={1.3}
+          />
+        </g>
       </svg>
 
       {hover && (

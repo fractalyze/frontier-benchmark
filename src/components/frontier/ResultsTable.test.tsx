@@ -1,32 +1,46 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 
-import { findBenchmark } from "@/data/frontier";
+import { findBenchmark, lpipsOf, speedup } from "@/data/frontier";
 import { ResultsTable } from "./ResultsTable";
 
-// No `globals: true` in the vitest config, so RTL's auto-cleanup and jsdom's missing
-// scrollIntoView both need handling here.
+// No `globals: true` in the vitest config, so RTL's auto-cleanup needs handling here.
 afterEach(cleanup);
-Element.prototype.scrollIntoView = vi.fn();
 
 const bench = findBenchmark("qwen-image-2.1", "rtx5090")!;
+const k20 = bench.recipes.find((r) => r.id === "dpcache-k20")!;
 
-const renderTable = (openId: string | null = null, onSelect = vi.fn()) => {
+const renderTable = ({
+  openId = null,
+  limit = 1,
+  onSelect = vi.fn<(id: string) => void>(),
+  onClose = vi.fn<() => void>(),
+}: {
+  openId?: string | null;
+  limit?: number;
+  onSelect?: ReturnType<typeof vi.fn<(id: string) => void>>;
+  onClose?: ReturnType<typeof vi.fn<() => void>>;
+} = {}) => {
   render(
     <ResultsTable
       bench={bench}
-      limit={0.05}
+      limit={limit}
       selectedId={null}
       openId={openId}
       onSelect={onSelect}
+      onClose={onClose}
     />,
   );
-  return onSelect;
+  return { onSelect, onClose };
 };
 
-/** Row containing the given recipe name. */
-const rowOf = (name: string) => screen.getByText(name).closest("tr")!;
-/** The <dd> paired with a <dt> label in the open detail row. */
+/** Table row for a recipe name. The open dialog repeats the name in its title and
+ * aria-hides the page behind it, so the lookup is scoped to the (hidden) table. */
+const rowOf = (name: string) =>
+  within(screen.getByRole("table", { hidden: true }))
+    .getByText(name)
+    .closest("tr")!;
+/** The <dd> paired with a <dt> label in the open detail dialog. */
 const cellOf = (label: string) => screen.getByText(label).nextElementSibling as HTMLElement;
 
 describe("ResultsTable", () => {
@@ -36,54 +50,88 @@ describe("ResultsTable", () => {
     expect(headers).toEqual(["Latency", "LPIPS", "Speedup", "Recipe", "Engine", "Verified"]);
   });
 
-  it("formats the dpcache-k20 row", () => {
+  it("formats the dpcache-k20 row from its data", () => {
     renderTable();
     const cells = within(rowOf("DPCache K=20"))
       .getAllByRole("cell")
       .map((c) => c.textContent);
     expect(cells).toEqual([
-      "6.8s",
-      ".008",
-      "2.0×",
+      `${k20.metrics.latencyS.toFixed(1)}s`,
+      `.${Math.round(lpipsOf(k20) * 1000)
+        .toString()
+        .padStart(3, "0")}`,
+      `${speedup(bench, k20).toFixed(1)}×`,
       "DPCache K=20",
-      "sglang-diffusion 2754e6ecf",
-      "submitted",
+      `${k20.engine.name} ${k20.engine.version}`,
+      "✓",
     ]);
   });
 
-  it("shows full metrics and provenance in the open detail row", () => {
-    renderTable("dpcache-k20");
-    expect(cellOf("PSNR")).toHaveTextContent("41.5 dB (min 28.2)");
-    // Not measured by the source study: rendered as a dash, never as 0 or NaN.
-    for (const label of ["SSIM", "ImageReward", "Peak VRAM"])
-      expect(cellOf(label)).toHaveTextContent(/^—$/);
+  it("hides recipes above the quality limit and says how many", () => {
+    const limit = 0.05;
+    renderTable({ limit });
+    const within_ = bench.recipes.filter((r) => lpipsOf(r) <= limit);
+    expect(screen.getAllByRole("row")).toHaveLength(within_.length + 1); // + header
+    const hidden = bench.recipes.length - within_.length;
+    expect(hidden).toBeGreaterThan(0);
+    expect(
+      screen.getByText(new RegExp(`^${hidden} recipes? above LPIPS .050 hidden`)),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("DPCache K=12")).toBeNull();
+  });
+
+  it("shows full metrics, configuration and provenance in the detail dialog", () => {
+    renderTable({ openId: "dpcache-k20" });
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("heading")).toHaveTextContent("DPCache K=20");
+    const m = k20.metrics;
+    expect(cellOf("PSNR")).toHaveTextContent(
+      `${m.psnr!.mean.toFixed(1)} dB (min ${m.psnr!.min.toFixed(1)})`,
+    );
+    expect(cellOf("SSIM")).toHaveTextContent(m.ssim!.mean.toFixed(3));
+    expect(cellOf("ImageReward")).toHaveTextContent(m.imageReward!.mean.toFixed(2));
+    expect(cellOf("Peak VRAM")).toHaveTextContent(`${m.peakVramGb!.toFixed(1)} GB`);
     expect(cellOf("Config").querySelector("a")).toHaveAttribute(
       "href",
       expect.stringContaining("configs/dpcache-K20.json"),
     );
-    expect(cellOf("Source").querySelector("a")).toHaveAttribute(
-      "href",
-      expect.stringContaining("qwen_image21_dpcache/README.md"),
-    );
+    expect(cellOf("Status")).toHaveTextContent(/^Verified$/);
     expect(cellOf("Measured on")).toHaveTextContent(
-      "comparator-v1 (20 prompt/seed pairs), 2026-09-23",
+      `heldout-v1 (20 prompt/seed pairs), ${k20.date}`,
     );
+    for (const line of k20.configuration)
+      expect(within(dialog).getByText(line)).toBeInTheDocument();
   });
 
   it("renders em dashes for the baseline's null metrics and provenance", () => {
-    renderTable("sglang-native");
-    const cells = within(rowOf("Baseline")).getAllByRole("cell");
+    renderTable({ openId: "sglang-native" });
+    const cells = within(rowOf("Baseline")).getAllByRole("cell", { hidden: true });
     expect(cells[1]).toHaveTextContent(/^—$/);
-    for (const label of ["LPIPS mean", "LPIPS max", "PSNR", "SSIM", "Config", "Submission"])
+    for (const label of [
+      "LPIPS mean",
+      "LPIPS max",
+      "PSNR",
+      "SSIM",
+      "Config",
+      "Source",
+      "Submission",
+    ])
       expect(cellOf(label)).toHaveTextContent(/^—$/);
     for (const label of ["Config", "Submission"])
       expect(cellOf(label).querySelector("a")).toBeNull();
     expect(screen.getByText("none (reference)")).toBeInTheDocument();
   });
 
-  it("calls onSelect with the recipe id on row click", () => {
-    const onSelect = renderTable();
+  it("renders no dialog when nothing is open", () => {
+    renderTable();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("calls onSelect with the recipe id on row click, and onClose when the dialog closes", () => {
+    const { onSelect, onClose } = renderTable({ openId: "dpcache-k20" });
     fireEvent.click(rowOf("DPCache K=20"));
     expect(onSelect).toHaveBeenCalledWith("dpcache-k20");
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(onClose).toHaveBeenCalled();
   });
 });

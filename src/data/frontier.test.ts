@@ -17,17 +17,17 @@ const { recipes } = bench;
 const byId = (id: string) => recipes.find((x) => x.id === id)!;
 
 describe("BENCHMARKS (loaded from data/benchmarks via import.meta.glob)", () => {
-  it("loads the qwen-image-2.1 / rtx5090 demo benchmark with 10 recipes", () => {
+  it("loads the qwen-image-2.1 / rtx5090 benchmark with its 9 recipes", () => {
     expect(findBenchmark("qwen-image-2.1", "rtx5090")).toBe(bench);
     expect(bench.model).toBe("qwen-image-2.1");
     expect(bench.hardware).toBe("rtx5090");
-    expect(recipes).toHaveLength(5);
+    expect(recipes).toHaveLength(9);
   });
 
   it("derives baseline and updated", () => {
     expect(bench.baseline.id).toBe("sglang-native");
-    expect(bench.baseline.metrics.latencyS).toBe(13.464);
-    expect(bench.updated).toBe("2026-09-23");
+    expect(bench.baseline.metrics.latencyS).toBe(13.578);
+    expect(bench.updated).toBe("2026-09-30");
   });
 
   it("derives names from methods", () => {
@@ -40,7 +40,7 @@ describe("BENCHMARKS (loaded from data/benchmarks via import.meta.glob)", () => 
 describe("lpipsOf", () => {
   it("treats the baseline's null lpips as zero loss", () => {
     expect(lpipsOf(bench.baseline)).toBe(0);
-    expect(lpipsOf(byId("dpcache-k20"))).toBe(0.0076);
+    expect(lpipsOf(byId("dpcache-k20"))).toBe(0.0113);
   });
 });
 
@@ -70,7 +70,8 @@ describe("paretoFrontier", () => {
 describe("fastestUnder", () => {
   it("picks the lowest-latency recipe within the lpips limit", () => {
     expect(fastestUnder(recipes, 0.03)?.id).toBe("dpcache-k20");
-    expect(fastestUnder(recipes, 0.01)?.id).toBe("dpcache-k20");
+    // K=20 measured .0113 on the held-out set, so only the baseline meets .01
+    expect(fastestUnder(recipes, 0.01)?.id).toBe("sglang-native");
     expect(fastestUnder(recipes, 1)?.id).toBe("dpcache-k12");
   });
 
@@ -84,14 +85,14 @@ describe("fastestUnder", () => {
 describe("speedup", () => {
   it("is baseline latency over recipe latency", () => {
     expect(speedup(bench, bench.baseline)).toBe(1);
-    expect(speedup(bench, byId("dpcache-k20"))).toBeCloseTo(1.966, 2);
+    expect(speedup(bench, byId("dpcache-k20"))).toBeCloseTo(1.923, 2);
   });
 });
 
 describe("ladder", () => {
   it("defaults to the 0.01 / 0.05 / 0.1 limits", () => {
     expect(ladder(bench).map((s) => [s.limit, s.recipe?.id])).toEqual([
-      [0.01, "dpcache-k20"],
+      [0.01, "sglang-native"],
       [0.05, "dpcache-k20"],
       [0.1, "dpcache-k12"],
     ]);

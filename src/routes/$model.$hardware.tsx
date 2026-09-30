@@ -3,13 +3,11 @@ import { useState } from "react";
 import {
   fastestUnder,
   findBenchmark,
-  fmtLimit,
   fmtLpips,
   fmtResolution,
   hardwareBySlug,
   lpipsOf,
   modelBySlug,
-  QUALITY_LIMITS,
   speedup,
 } from "@/data/frontier";
 import { REPO_URL } from "@/data/site";
@@ -17,7 +15,6 @@ import { SiteShell } from "@/components/frontier/SiteShell";
 import { IdentitySelect } from "@/components/frontier/IdentitySelect";
 import { ParetoFigure } from "@/components/frontier/ParetoFigure";
 import { ResultsTable } from "@/components/frontier/ResultsTable";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/$model/$hardware")({
   loader: ({ params }) => {
@@ -62,14 +59,15 @@ function BenchmarkPage() {
   const best = fastestUnder(bench.recipes, limit);
   const selected = bench.recipes.find((r) => r.id === picked) ?? best;
 
-  const select = (id: string) => {
+  // The chart highlights a recipe; a table row also opens its detail dialog.
+  const highlight = (id: string) => setPicked(id);
+  const open = (id: string) => {
     setPicked(id);
-    setOpenId((o) => (o === id ? null : id));
+    setOpenId(id);
   };
   const changeLimit = (l: number) => {
     setLimit(l);
     setPicked(null);
-    setOpenId(null);
   };
 
   return (
@@ -104,29 +102,15 @@ function BenchmarkPage() {
           bench={bench}
           limit={limit}
           selectedId={selected?.id ?? null}
-          onSelect={select}
+          onSelect={highlight}
+          onLimitChange={changeLimit}
         />
 
         <div className="mt-3 border-t border-border pt-4">
-          <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
-            <span className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-              Quality limit
-            </span>
-            {QUALITY_LIMITS.map((l) => (
-              <button
-                key={l}
-                onClick={() => changeLimit(l)}
-                className={cn(
-                  "num border-b-2 pb-0.5 text-[14px] transition-colors",
-                  limit === l
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
-                )}
-              >
-                ≤ {fmtLimit(l)}
-              </button>
-            ))}
-          </div>
+          <p className="text-[12px] text-muted-foreground">
+            Drag the dashed line (or focus it and use the arrow keys) to set the quality limit; the
+            fastest recipe within it is selected and the table shows only recipes within it.
+          </p>
           <p className="mt-3 text-[14px]">
             {selected ? (
               <>
@@ -140,7 +124,9 @@ function BenchmarkPage() {
                 </span>
               </>
             ) : (
-              <span className="text-muted-foreground">No measured recipe meets this limit.</span>
+              <span className="text-muted-foreground">
+                No measured recipe meets LPIPS ≤ {fmtLpips(limit)}.
+              </span>
             )}
           </p>
         </div>
@@ -152,7 +138,8 @@ function BenchmarkPage() {
           limit={limit}
           selectedId={selected?.id ?? null}
           openId={openId}
-          onSelect={select}
+          onSelect={open}
+          onClose={() => setOpenId(null)}
         />
       </section>
 
