@@ -51,7 +51,7 @@ describe("ModelCard", () => {
     expect(rows()[1]).toEqual(["≤ .05", "1.7s", "DPCache + FP8 + SpargeAttn + torch.compile"]);
     expect(rows()[2]).toEqual([
       "≤ .10",
-      "10.0×",
+      "1.2s",
       "20-step schedule + DPCache + FP8 + torch.compile",
     ]);
   });
