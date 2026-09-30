@@ -17,17 +17,17 @@ const { recipes } = bench;
 const byId = (id: string) => recipes.find((x) => x.id === id)!;
 
 describe("BENCHMARKS (loaded from data/benchmarks via import.meta.glob)", () => {
-  it("loads the qwen-image-2.1 / rtx5090 benchmark with its 9 recipes", () => {
+  it("loads the qwen-image-2.1 / rtx5090 benchmark with its 10 recipes", () => {
     expect(findBenchmark("qwen-image-2.1", "rtx5090")).toBe(bench);
     expect(bench.model).toBe("qwen-image-2.1");
     expect(bench.hardware).toBe("rtx5090");
-    expect(recipes).toHaveLength(9);
+    expect(recipes).toHaveLength(10);
   });
 
   it("derives baseline and updated", () => {
     expect(bench.baseline.id).toBe("sglang-native");
     expect(bench.baseline.metrics.latencyS).toBe(13.578);
-    expect(bench.updated).toBe("2026-09-30");
+    expect(bench.updated).toBe("2026-10-01");
   });
 
   it("derives names from methods", () => {
@@ -72,7 +72,7 @@ describe("fastestUnder", () => {
     expect(fastestUnder(recipes, 0.03)?.id).toBe("dpcache-k20");
     // K=20 measured .0113 on the held-out set, so only the baseline meets .01
     expect(fastestUnder(recipes, 0.01)?.id).toBe("sglang-native");
-    expect(fastestUnder(recipes, 1)?.id).toBe("dpcache-k12");
+    expect(fastestUnder(recipes, 1)?.id).toBe("fp8-sage2-kernels-dpcache");
   });
 
   it("falls back to the baseline at limit 0 and null when nothing qualifies", () => {

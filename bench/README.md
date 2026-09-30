@@ -27,12 +27,17 @@ the recipe, scores it against the baseline, and rewrites
 | `score.py` | LPIPS (AlexNet, CPU FP32), PSNR, SSIM vs the baseline image of the same prompt+seed on white-composited RGB; ImageReward (absolute) through `image_reward_worker.py`. Writes `scores.json`. |
 | `emit.py` | run → recipe JSON. Refuses a DIRTY run. Pure `apply()` is unit-tested. |
 | `run.py` | holds the GPU lock and chains the three. |
+| `calibrate.py` | records the engine's DPCache calibration captures under a recipe's runtime (`sglang.multimodal_gen.tools.dpcache_calibrate record`/`plan`) and writes one schedule per budget to `configs/dpcache-<recipe>/K<budget>.json`. |
 | `env.py`, `sampler.py` | GPU0 pin, lock directories, `nvidia-smi` stamps and under-load clock/temperature sampling (from qwen-image-opt). |
 
 Recipe config files (`configs/<id>.json`, pointed to by `configPath`) come in three
 shapes: a DPCache schedule artifact (served through `dpcache_schedule_dir`,
 requested as `dpcache_budget`), `sglang-cache-dit-params`, or `sglang-runtime`
-(`server` kwargs, `env` knobs, `request` fields merged over the protocol).
+(`server` kwargs, `env` knobs, `request` fields merged over the protocol). An
+`sglang-runtime` config may also name a `dpcache_schedule` (repo-relative path)
+to stack DPCache on that runtime; a schedule is bound to the attention backend
+and checkpoint it was calibrated for, so a runtime that changes either needs its
+own (`python -m bench.calibrate --recipe <id> --budgets 12 16 20 ...`).
 
 ## What a number means
 

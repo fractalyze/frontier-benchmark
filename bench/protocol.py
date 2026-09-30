@@ -9,7 +9,9 @@ understood:
   `dpcache_schedule_dir`, requested with `dpcache_budget = num_full_steps`;
 - `sglang-cache-dit-params`: requested with `enable_cache_dit` + `cache_dit_params`;
 - `sglang-runtime`: `{"server": {...}, "env": {...}, "request": {...}}`, merged
-  over the protocol's baseline kwargs (server kwargs, process env, request kwargs).
+  over the protocol's baseline kwargs (server kwargs, process env, request kwargs);
+  an optional `dpcache_schedule` (repo-relative path) stacks a DPCache schedule
+  on top of that runtime.
 
 The baseline recipe (`configPath: null`) runs the protocol unchanged.
 """
@@ -111,18 +113,8 @@ def run_spec(benchmark: dict, recipe: dict, config: dict | None) -> RunSpec:
     if config is None:
         pass
     elif "full_steps" in config:
-        req = config.get("request", {})
-        mismatches = {
-            "num_inference_steps": (req.get("num_inference_steps"), request["num_inference_steps"]),
-            "height": (req.get("height"), request["height"]),
-            "guidance_scale": (req.get("guidance_scale"), request["guidance_scale"]),
-            "attention_backend": (req.get("attention_backend"), server["attention_backend"]),
-            "checkpoint": (req.get("checkpoint"), MODEL_REVISION),
-        }
-        bad = {k: v for k, v in mismatches.items() if v[0] is not None and v[0] != v[1]}
-        if bad:
-            raise ValueError(f"DPCache schedule was calibrated for another protocol: {bad}")
         schedule = config
+        _check_schedule(config, server, request)
         request["dpcache_budget"] = int(config["num_full_steps"])
     elif config.get("schema") == "sglang-cache-dit-params":
         request["enable_cache_dit"] = True
@@ -131,12 +123,31 @@ def run_spec(benchmark: dict, recipe: dict, config: dict | None) -> RunSpec:
         server.update(config.get("server", {}))
         env.update({k: str(v) for k, v in config.get("env", {}).items()})
         request.update(config.get("request", {}))
+        if config.get("dpcache_schedule"):
+            schedule = json.loads((REPO / config["dpcache_schedule"]).read_text())
+            _check_schedule(schedule, server, request)
+            request["dpcache_budget"] = int(schedule["num_full_steps"])
     else:
         raise ValueError(f"unrecognised config for recipe {recipe['id']}: {config.get('schema')!r}")
     if "component_residency" in server and server.get("dit_layerwise_offload"):
         # a runtime config that keeps the DiT resident replaces the protocol's offload
         server.pop("dit_layerwise_offload")
     return RunSpec(recipe["id"], server, env, request, schedule)
+
+
+def _check_schedule(config: dict, server: dict, request: dict) -> None:
+    """A DPCache schedule is bound to the request it was calibrated for."""
+    req = config.get("request", {})
+    mismatches = {
+        "num_inference_steps": (req.get("num_inference_steps"), request["num_inference_steps"]),
+        "height": (req.get("height"), request["height"]),
+        "guidance_scale": (req.get("guidance_scale"), request["guidance_scale"]),
+        "attention_backend": (req.get("attention_backend"), server["attention_backend"]),
+        "checkpoint": (req.get("checkpoint"), MODEL_REVISION),
+    }
+    bad = {k: v for k, v in mismatches.items() if v[0] is not None and v[0] != v[1]}
+    if bad:
+        raise ValueError(f"DPCache schedule was calibrated for another protocol: {bad}")
 
 
 def spec_for(model: str, hardware: str, recipe_id: str) -> RunSpec:

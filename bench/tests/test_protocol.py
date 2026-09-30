@@ -70,6 +70,20 @@ def test_runtime_config_overrides_server_env_and_drops_offload_when_resident():
     assert spec.env == {"SGLANG_ENABLE_QWEN3VL_TEXT_CUDA_GRAPH": "1"}
 
 
+def test_runtime_config_can_stack_a_dpcache_schedule(tmp_path, monkeypatch):
+    sched = {"full_steps": [0, 1, 2], "num_full_steps": 12,
+             "request": {"attention_backend": "sage_attn", "checkpoint": protocol.MODEL_REVISION}}
+    (tmp_path / "K12.json").write_text(json.dumps(sched))
+    monkeypatch.setattr(protocol, "REPO", tmp_path)
+    cfg = {"schema": "sglang-runtime", "server": {"attention_backend": "sage_attn"},
+           "dpcache_schedule": "K12.json"}
+    spec = protocol.run_spec(BENCH, RECIPE, cfg)
+    assert spec.request["dpcache_budget"] == 12 and spec.schedule == sched
+    cfg["server"]["attention_backend"] = "torch_sdpa"
+    with pytest.raises(ValueError, match="attention_backend"):
+        protocol.run_spec(BENCH, RECIPE, cfg)
+
+
 def test_unknown_config_is_refused():
     with pytest.raises(ValueError, match="unrecognised"):
         protocol.run_spec(BENCH, RECIPE, {"schema": "something-else"})
