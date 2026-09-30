@@ -1,0 +1,47 @@
+{
+  "id": "fp8-sage2",
+  "engine": {
+    "name": "sglang-diffusion",
+    "version": "5ead00ae6",
+    "url": "https://github.com/fractalyze/sglang/tree/qi21/showcase"
+  },
+  "optimization": [
+    {
+      "technique": "Quantization",
+      "method": "FP8 W8A8"
+    },
+    {
+      "technique": "Quantization",
+      "method": "SageAttention2"
+    }
+  ],
+  "configuration": [
+    "the engine's own flags: --quantization fp8 with the transformer's attention on SageAttention2",
+    "all transformer blocks quantized to FP8 at load",
+    "text encoder and VAE unchanged"
+  ],
+  "configPath": "data/benchmarks/flux-2-klein-4b/rtx5090/configs/fp8-sage2.json",
+  "metrics": {
+    "latencyS": 7.955,
+    "peakVramGb": 16.2,
+    "lpips": {
+      "mean": 0.188,
+      "max": 0.5098
+    },
+    "psnr": {
+      "mean": 19.6,
+      "min": 12.0
+    },
+    "ssim": {
+      "mean": 0.7871
+    },
+    "imageReward": {
+      "mean": 1.0
+    }
+  },
+  "status": "Verified",
+  "measuredOn": "held-out",
+  "date": "2026-10-01",
+  "sourceUrl": null,
+  "pr": null
+}

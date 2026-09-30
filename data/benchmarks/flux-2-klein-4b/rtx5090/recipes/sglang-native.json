@@ -1,0 +1,32 @@
+{
+  "id": "sglang-native",
+  "engine": {
+    "name": "sglang-diffusion",
+    "version": "5ead00ae6",
+    "url": "https://github.com/fractalyze/sglang/tree/qi21/showcase"
+  },
+  "optimization": [],
+  "configuration": [
+    "50 steps, classifier-free guidance 4.0",
+    "BF16",
+    "torch_sdpa attention",
+    "DiT, text encoder and VAE resident",
+    "eager (no compile, no CUDA graphs)"
+  ],
+  "configPath": null,
+  "metrics": {
+    "latencyS": 17.786,
+    "peakVramGb": 19.9,
+    "lpips": null,
+    "psnr": null,
+    "ssim": null,
+    "imageReward": {
+      "mean": 0.963
+    }
+  },
+  "status": "Verified",
+  "measuredOn": "held-out",
+  "date": "2026-10-01",
+  "sourceUrl": null,
+  "pr": null
+}

@@ -1,0 +1,13 @@
+{
+  "schema": "sglang-runtime",
+  "note": "sglang's own FP8 + SageAttention2 flags on the FLUX.2 klein pipeline",
+  "server": {
+    "quantization": "fp8",
+    "component_attention_backends": {
+      "transformer": "sage_attn"
+    },
+    "dit_layerwise_offload": false
+  },
+  "env": {},
+  "request": {}
+}

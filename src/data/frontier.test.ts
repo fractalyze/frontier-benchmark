@@ -12,16 +12,26 @@ import {
   speedup,
 } from "@/data/frontier";
 
-const bench = BENCHMARKS[0]!;
+const bench = findBenchmark("qwen-image-2.1", "rtx5090")!;
 const { recipes } = bench;
 const byId = (id: string) => recipes.find((x) => x.id === id)!;
 
 describe("BENCHMARKS (loaded from data/benchmarks via import.meta.glob)", () => {
   it("loads the qwen-image-2.1 / rtx5090 benchmark with its 10 recipes", () => {
-    expect(findBenchmark("qwen-image-2.1", "rtx5090")).toBe(bench);
+    expect(BENCHMARKS.map((b) => `${b.model}/${b.hardware}`)).toEqual([
+      "flux-2-klein-4b/rtx5090",
+      "qwen-image-2.1/rtx5090",
+    ]);
     expect(bench.model).toBe("qwen-image-2.1");
     expect(bench.hardware).toBe("rtx5090");
     expect(recipes).toHaveLength(10);
+  });
+
+  it("loads the flux-2-klein-4b / rtx5090 benchmark with its 4 recipes", () => {
+    const flux = findBenchmark("flux-2-klein-4b", "rtx5090")!;
+    expect(flux.baseline.id).toBe("sglang-native");
+    expect(flux.recipes).toHaveLength(4);
+    expect(flux.protocol.steps).toBe(50);
   });
 
   it("derives baseline and updated", () => {

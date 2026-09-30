@@ -24,24 +24,51 @@ import os
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-MODEL_ID = "Qwen/Qwen-Image-2.1"
-MODEL_REVISION = "790c92633540aa0cb11d9abf19eb46d861714758"
 HF_HOME = os.environ.get("HF_HOME", "/data/a41/hf-cache")
-# Passed as the model path (not the repo id) so DPCache's checkpoint identity
-# resolves to the snapshot revision the published schedules were calibrated for.
-MODEL_PATH = f"{HF_HOME}/hub/models--Qwen--Qwen-Image-2.1/snapshots/{MODEL_REVISION}"
-if not os.path.isdir(MODEL_PATH):
-    MODEL_PATH = f"{HF_HOME}/models--Qwen--Qwen-Image-2.1/snapshots/{MODEL_REVISION}"
 
-# benchmark.json `protocol.offload` -> engine residency. The 17.5 GB Qwen3-VL text
-# encoder never fits beside the DiT on a 32 GB card, so it always streams; the
-# choice is whether the DiT streams too. Streaming the DiT makes wall time
+
+@dataclasses.dataclass(frozen=True)
+class Model:
+    """A benchmark's checkpoint, pinned to the revision its DPCache schedules were calibrated for."""
+    repo: str
+    revision: str
+    model_id: str  # the engine's served model name / pipeline hint
+
+    @property
+    def path(self) -> str:
+        """The snapshot directory, passed as the model path (not the repo id) so
+        DPCache's checkpoint identity resolves to the pinned revision."""
+        name = "models--" + self.repo.replace("/", "--")
+        hub = f"{HF_HOME}/hub/{name}/snapshots/{self.revision}"
+        return hub if os.path.isdir(hub) else f"{HF_HOME}/{name}/snapshots/{self.revision}"
+
+
+# Keyed by benchmark.json `model` (the site's model slug).
+MODELS = {
+    "qwen-image-2.1": Model("Qwen/Qwen-Image-2.1", "790c92633540aa0cb11d9abf19eb46d861714758", "Qwen-Image-2.1"),
+    "flux-2-klein-4b": Model("black-forest-labs/FLUX.2-klein-base-4B",
+                             "a3b4f4849157f664bdbc776fd7453c2783562f4d", "FLUX.2-klein-base-4B"),
+}
+
+
+def model_for(benchmark: dict) -> Model:
+    try:
+        return MODELS[benchmark["model"]]
+    except KeyError:
+        raise ValueError(f"no checkpoint registered for model {benchmark['model']!r}") from None
+
+
+# benchmark.json `protocol.offload` -> engine residency. Qwen-Image's 17.5 GB Qwen3-VL
+# text encoder never fits beside the DiT on a 32 GB card, so it always streams; the
+# choice there is whether the DiT streams too. Streaming the DiT makes wall time
 # hostage to host CPU/memory contention on this shared box (see bench/README.md).
+# Smaller models (FLUX.2 klein 4B) keep everything resident.
 OFFLOAD = {
     "DiT layerwise": {"dit_layerwise_offload": True},
     "text encoder layerwise": {
         "component_residency": ["dit=resident", "text_encoder=layerwise-offload", "vae=resident"]
     },
+    "none": {"dit_layerwise_offload": False},
 }
 
 
@@ -66,13 +93,15 @@ def load_recipe(model: str, hardware: str, recipe_id: str) -> dict:
     return json.loads((benchmark_dir(model, hardware) / "recipes" / f"{recipe_id}.json").read_text())
 
 
-def baseline_server_kwargs(protocol: dict) -> dict:
+def baseline_server_kwargs(benchmark: dict) -> dict:
     """The engine configuration the protocol fixes; every recipe starts from it."""
+    protocol = benchmark["protocol"]
+    model = model_for(benchmark)
     if protocol["precision"] != "BF16":
         raise ValueError(f"protocol precision {protocol['precision']!r} is not supported")
     kwargs = dict(
-        model_path=MODEL_PATH,
-        model_id="Qwen-Image-2.1",
+        model_path=model.path,
+        model_id=model.model_id,
         num_gpus=1,
         performance_mode="manual",
         attention_backend=protocol["attention"],
@@ -106,15 +135,16 @@ def baseline_request_kwargs(protocol: dict) -> dict:
 
 def run_spec(benchmark: dict, recipe: dict, config: dict | None) -> RunSpec:
     protocol = benchmark["protocol"]
-    server = baseline_server_kwargs(protocol)
+    server = baseline_server_kwargs(benchmark)
     request = baseline_request_kwargs(protocol)
+    revision = model_for(benchmark).revision
     env: dict = {}
     schedule = None
     if config is None:
         pass
     elif "full_steps" in config:
         schedule = config
-        _check_schedule(config, server, request)
+        _check_schedule(config, server, request, revision)
         request["dpcache_budget"] = int(config["num_full_steps"])
     elif config.get("schema") == "sglang-cache-dit-params":
         request["enable_cache_dit"] = True
@@ -125,7 +155,7 @@ def run_spec(benchmark: dict, recipe: dict, config: dict | None) -> RunSpec:
         request.update(config.get("request", {}))
         if config.get("dpcache_schedule"):
             schedule = json.loads((REPO / config["dpcache_schedule"]).read_text())
-            _check_schedule(schedule, server, request)
+            _check_schedule(schedule, server, request, revision)
             request["dpcache_budget"] = int(schedule["num_full_steps"])
     else:
         raise ValueError(f"unrecognised config for recipe {recipe['id']}: {config.get('schema')!r}")
@@ -135,7 +165,7 @@ def run_spec(benchmark: dict, recipe: dict, config: dict | None) -> RunSpec:
     return RunSpec(recipe["id"], server, env, request, schedule)
 
 
-def _check_schedule(config: dict, server: dict, request: dict) -> None:
+def _check_schedule(config: dict, server: dict, request: dict, revision: str) -> None:
     """A DPCache schedule is bound to the request it was calibrated for."""
     req = config.get("request", {})
     mismatches = {
@@ -143,7 +173,7 @@ def _check_schedule(config: dict, server: dict, request: dict) -> None:
         "height": (req.get("height"), request["height"]),
         "guidance_scale": (req.get("guidance_scale"), request["guidance_scale"]),
         "attention_backend": (req.get("attention_backend"), server["attention_backend"]),
-        "checkpoint": (req.get("checkpoint"), MODEL_REVISION),
+        "checkpoint": (req.get("checkpoint"), revision),
     }
     bad = {k: v for k, v in mismatches.items() if v[0] is not None and v[0] != v[1]}
     if bad:

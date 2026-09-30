@@ -1,0 +1,57 @@
+{
+  "id": "fp8-mixed-sage2-kernels-dpcache",
+  "engine": {
+    "name": "sglang-diffusion",
+    "version": "5ead00ae6",
+    "url": "https://github.com/fractalyze/sglang/tree/qi21/showcase"
+  },
+  "optimization": [
+    {
+      "technique": "Quantization",
+      "method": "FP8 W8A8 (double-stream blocks BF16)"
+    },
+    {
+      "technique": "Quantization",
+      "method": "SageAttention2"
+    },
+    {
+      "technique": "Kernel Optimization",
+      "method": "fused concat + FP8 quantize"
+    },
+    {
+      "technique": "Feature Caching",
+      "method": "DPCache K=16"
+    }
+  ],
+  "configuration": [
+    "SM120 block-scaled FP8 GEMMs for the single-stream blocks; the 5 double-stream blocks stay in BF16",
+    "fused token concat + FP8 quantize kernel (SGLANG_ENABLE_FLUX2_FUSED_CAT_FP8_QUANT)",
+    "transformer attention on SageAttention2 (INT8 QK, FP8 PV)",
+    "DPCache: 16 of 50 steps run the full transformer, the rest are extrapolated; schedule calibrated for this stack with classifier-free guidance",
+    "the showcase's paper-level configuration"
+  ],
+  "configPath": "data/benchmarks/flux-2-klein-4b/rtx5090/configs/fp8-mixed-sage2-kernels-dpcache.json",
+  "metrics": {
+    "latencyS": 3.078,
+    "peakVramGb": 17.2,
+    "lpips": {
+      "mean": 0.1205,
+      "max": 0.2272
+    },
+    "psnr": {
+      "mean": 21.9,
+      "min": 12.7
+    },
+    "ssim": {
+      "mean": 0.8437
+    },
+    "imageReward": {
+      "mean": 0.983
+    }
+  },
+  "status": "Verified",
+  "measuredOn": "held-out",
+  "date": "2026-10-01",
+  "sourceUrl": null,
+  "pr": null
+}

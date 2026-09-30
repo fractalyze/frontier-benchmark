@@ -5,6 +5,7 @@ import pytest
 from bench import protocol
 
 BENCH = {
+    "model": "qwen-image-2.1",
     "protocol": {"version": "v0.4", "resolution": "1024x1024", "batch": 1, "steps": 40,
                  "precision": "BF16", "guidance": 1.0, "attention": "torch_sdpa", "offload": "text encoder layerwise"},
     "baselineRecipe": "sglang-native",
@@ -30,6 +31,26 @@ def test_dit_layerwise_protocol_streams_the_dit():
     assert protocol.run_spec(bench, RECIPE, None).server["dit_layerwise_offload"] is True
 
 
+def test_all_resident_protocol_disables_layerwise_offload():
+    bench = {**BENCH, "model": "flux-2-klein-4b", "protocol": {**BENCH["protocol"], "offload": "none"}}
+    spec = protocol.run_spec(bench, RECIPE, None)
+    assert spec.server["dit_layerwise_offload"] is False and "component_residency" not in spec.server
+    assert spec.server["model_id"] == "FLUX.2-klein-base-4B"
+    assert spec.server["model_path"].endswith("a3b4f4849157f664bdbc776fd7453c2783562f4d")
+
+
+def test_unregistered_model_is_refused():
+    with pytest.raises(ValueError, match="no checkpoint registered"):
+        protocol.run_spec({**BENCH, "model": "z-image"}, RECIPE, None)
+
+
+def test_a_schedule_for_another_checkpoint_is_refused():
+    sched = {"full_steps": [0], "num_full_steps": 12,
+             "request": {"checkpoint": protocol.MODELS["flux-2-klein-4b"].revision}}
+    with pytest.raises(ValueError, match="checkpoint"):
+        protocol.run_spec(BENCH, RECIPE, sched)
+
+
 def test_unknown_offload_is_refused():
     bench = {**BENCH, "protocol": {**BENCH["protocol"], "offload": "everything resident"}}
     with pytest.raises(ValueError, match="offload"):
@@ -39,7 +60,7 @@ def test_unknown_offload_is_refused():
 def test_dpcache_schedule_becomes_budget_request():
     sched = {"full_steps": [0, 1, 2], "num_full_steps": 20,
              "request": {"num_inference_steps": 40, "height": 1024, "guidance_scale": 1.0,
-                         "attention_backend": "torch_sdpa", "checkpoint": protocol.MODEL_REVISION}}
+                         "attention_backend": "torch_sdpa", "checkpoint": protocol.MODELS["qwen-image-2.1"].revision}}
     spec = protocol.run_spec(BENCH, RECIPE, sched)
     assert spec.request["dpcache_budget"] == 20
     assert spec.schedule is sched
@@ -72,7 +93,7 @@ def test_runtime_config_overrides_server_env_and_drops_offload_when_resident():
 
 def test_runtime_config_can_stack_a_dpcache_schedule(tmp_path, monkeypatch):
     sched = {"full_steps": [0, 1, 2], "num_full_steps": 12,
-             "request": {"attention_backend": "sage_attn", "checkpoint": protocol.MODEL_REVISION}}
+             "request": {"attention_backend": "sage_attn", "checkpoint": protocol.MODELS["qwen-image-2.1"].revision}}
     (tmp_path / "K12.json").write_text(json.dumps(sched))
     monkeypatch.setattr(protocol, "REPO", tmp_path)
     cfg = {"schema": "sglang-runtime", "server": {"attention_backend": "sage_attn"},
