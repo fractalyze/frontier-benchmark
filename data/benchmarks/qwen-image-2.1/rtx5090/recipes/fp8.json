@@ -14,7 +14,6 @@
   "configPath": null,
   "metrics": {
     "latencyS": 5.1,
-    "throughputImgS": 0.31,
     "peakVramGb": 15.2,
     "lpips": {
       "mean": 0.014,

@@ -54,7 +54,6 @@ export const BenchmarkFileSchema = z
         "held-out": z.object({ name: text, count: posInt }).strict(),
       })
       .strict(),
-    throughputConcurrency: posInt,
     warmupRuns: z.number().int().nonnegative(),
     baselineRecipe: slug,
   })
@@ -70,7 +69,6 @@ export const RecipeFileSchema = z
     metrics: z
       .object({
         latencyS: pos,
-        throughputImgS: pos,
         peakVramGb: pos,
         lpips: z.object({ mean: nonneg, p95: nonneg }).strict().nullable(),
         psnr: z.object({ mean: pos }).strict().nullable(),

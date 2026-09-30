@@ -19,7 +19,6 @@
       "count": 100
     }
   },
-  "throughputConcurrency": 4,
   "warmupRuns": 3,
   "baselineRecipe": "sglang-default"
 }

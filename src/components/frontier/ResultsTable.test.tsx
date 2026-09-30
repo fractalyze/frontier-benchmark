@@ -30,18 +30,10 @@ const rowOf = (name: string) => screen.getByText(name).closest("tr")!;
 const cellOf = (label: string) => screen.getByText(label).nextElementSibling as HTMLElement;
 
 describe("ResultsTable", () => {
-  it("renders the 7 column headers in order", () => {
+  it("renders the 6 column headers in order", () => {
     renderTable();
     const headers = screen.getAllByRole("columnheader").map((h) => h.textContent);
-    expect(headers).toEqual([
-      "Latency",
-      "Throughput",
-      "LPIPS",
-      "Speedup",
-      "Recipe",
-      "Engine",
-      "Verified",
-    ]);
+    expect(headers).toEqual(["Latency", "LPIPS", "Speedup", "Recipe", "Engine", "Verified"]);
   });
 
   it("formats the dpcache-fp8 row", () => {
@@ -51,7 +43,6 @@ describe("ResultsTable", () => {
       .map((c) => c.textContent);
     expect(cells).toEqual([
       "2.4s",
-      "0.67 img/s",
       ".028",
       "5.0×",
       "DPCache + FP8",
@@ -72,7 +63,7 @@ describe("ResultsTable", () => {
   it("renders em dashes for the baseline's null metrics and provenance", () => {
     renderTable("sglang-default");
     const cells = within(rowOf("Baseline")).getAllByRole("cell");
-    expect(cells[2]).toHaveTextContent(/^—$/);
+    expect(cells[1]).toHaveTextContent(/^—$/);
     for (const label of [
       "LPIPS mean",
       "LPIPS p95",

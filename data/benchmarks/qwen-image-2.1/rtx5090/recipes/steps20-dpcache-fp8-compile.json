@@ -23,7 +23,7 @@
     }
   ],
   "configuration": [
-    "20 steps · shifted sigmas",
+    "20 steps \u00b7 shifted sigmas",
     "cache interval 2",
     "FP8 E4M3 W8A8",
     "mode=max-autotune"
@@ -31,7 +31,6 @@
   "configPath": null,
   "metrics": {
     "latencyS": 1.2,
-    "throughputImgS": 1.33,
     "peakVramGb": 15.7,
     "lpips": {
       "mean": 0.086,

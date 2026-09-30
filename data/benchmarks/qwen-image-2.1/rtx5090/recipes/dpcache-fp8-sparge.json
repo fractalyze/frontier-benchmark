@@ -18,11 +18,10 @@
       "method": "SpargeAttn"
     }
   ],
-  "configuration": ["cache interval 3", "FP8 E4M3 W8A8", "sparsity 0.6 · block 128"],
+  "configuration": ["cache interval 3", "FP8 E4M3 W8A8", "sparsity 0.6 \u00b7 block 128"],
   "configPath": null,
   "metrics": {
     "latencyS": 2,
-    "throughputImgS": 0.8,
     "peakVramGb": 15.8,
     "lpips": {
       "mean": 0.041,

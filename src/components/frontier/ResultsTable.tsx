@@ -55,7 +55,6 @@ function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
         title="Benchmark"
         rows={[
           ["Latency", <Num>{m.latencyS.toFixed(1)}s</Num>],
-          ["Throughput", <Num>{m.throughputImgS.toFixed(2)} img/s</Num>],
           ["LPIPS mean", <Num>{fmtLpips(m.lpips?.mean)}</Num>],
           ["LPIPS p95", <Num>{fmtLpips(m.lpips?.p95)}</Num>],
           ["PSNR", <Num>{m.psnr ? `${m.psnr.mean.toFixed(1)} dB` : DASH}</Num>],
@@ -111,11 +110,10 @@ export function ResultsTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] border-collapse text-[13px]">
+      <table className="w-full min-w-[640px] border-collapse text-[13px]">
         <thead>
           <tr className="border-b border-border-strong text-left">
             <th className={cn(th, "pl-4 text-right")}>Latency</th>
-            <th className={cn(th, "text-right")}>Throughput</th>
             <th className={cn(th, "text-right")}>LPIPS</th>
             <th className={cn(th, "text-right")}>Speedup</th>
             <th className={th}>Recipe</th>
@@ -146,9 +144,6 @@ export function ResultsTable({
                   >
                     {r.metrics.latencyS.toFixed(1)}s
                   </td>
-                  <td className="num py-2 pr-5 text-right whitespace-nowrap">
-                    {`${r.metrics.throughputImgS.toFixed(2)} img/s`}
-                  </td>
                   <td className="num py-2 pr-5 text-right">{fmtLpips(lpipsOf(r))}</td>
                   <td className="num py-2 pr-5 text-right">{speedup(bench, r).toFixed(1)}×</td>
                   <td className={cn("py-2 pr-5", sel ? "font-semibold" : "font-medium")}>
@@ -172,7 +167,7 @@ export function ResultsTable({
                 </tr>
                 {open && (
                   <tr className="border-b border-border">
-                    <td colSpan={7} className="shadow-[inset_2px_0_0_var(--primary)]">
+                    <td colSpan={6} className="shadow-[inset_2px_0_0_var(--primary)]">
                       <Detail bench={bench} r={r} />
                     </td>
                   </tr>

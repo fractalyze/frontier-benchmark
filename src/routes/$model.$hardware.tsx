@@ -84,7 +84,6 @@ function BenchmarkPage() {
             ["Precision", bench.protocol.precision],
             ["Protocol", bench.protocol.version],
             ["Prompts", `${bench.promptSets.public.count} public`],
-            ["Concurrency", bench.throughputConcurrency],
             ["Updated", bench.updated],
           ].map(([k, v]) => (
             <div key={k}>

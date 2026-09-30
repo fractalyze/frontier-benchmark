@@ -16,14 +16,13 @@ All recipes on a page are compared to the same **baseline**: the engine's
 default run — BF16, 50 steps, no cache, no quantization. Model weights are
 never changed; distilled or fine-tuned checkpoints are not recipes.
 
-| Metric           | Definition                                                                                                                                 |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `latencyS`       | One image, prompt in → image out, median over the prompt set after 3 warmup runs                                                           |
-| `throughputImgS` | Images per second with 4 requests in flight, over the same prompt set                                                                      |
-| `peakVramGb`     | Peak GPU memory during the run                                                                                                             |
-| `lpips`          | LPIPS vs. the baseline image for the same prompt and seed (mean and p95). **Primary quality axis** — every chart and quality limit uses it |
-| `psnr`, `ssim`   | PSNR (dB) and SSIM vs. the baseline image, mean                                                                                            |
-| `imageReward`    | ImageReward score of the recipe's own images, mean (absolute, not vs. baseline)                                                            |
+| Metric         | Definition                                                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `latencyS`     | One image, prompt in → image out, one request at a time, median over the prompt set after 3 warmup runs                                    |
+| `peakVramGb`   | Peak GPU memory during the run                                                                                                             |
+| `lpips`        | LPIPS vs. the baseline image for the same prompt and seed (mean and p95). **Primary quality axis** — every chart and quality limit uses it |
+| `psnr`, `ssim` | PSNR (dB) and SSIM vs. the baseline image, mean                                                                                            |
+| `imageReward`  | ImageReward score of the recipe's own images, mean (absolute, not vs. baseline)                                                            |
 
 The baseline is compared against itself, so its `lpips` / `psnr` / `ssim`
 are `null` and render as "—".
@@ -44,7 +43,7 @@ data/benchmarks/<model>/<hardware>/
 ```
 
 `benchmark.json` holds the protocol (resolution, batch, steps, precision,
-version), both prompt sets, the throughput concurrency, warmup count, and the
+version), both prompt sets, the warmup count, and the
 id of the baseline recipe. A recipe file holds the engine (name + version),
 the optimization list as `{ technique, method }` pairs, short configuration
 notes, the metrics above, the status, which prompt set it was measured on,

@@ -5,11 +5,10 @@
     "version": "0.5.0"
   },
   "optimization": [],
-  "configuration": ["50 steps · FlowMatch Euler", "BF16"],
+  "configuration": ["50 steps \u00b7 FlowMatch Euler", "BF16"],
   "configPath": null,
   "metrics": {
     "latencyS": 12,
-    "throughputImgS": 0.13,
     "peakVramGb": 23.4,
     "lpips": null,
     "psnr": null,
