@@ -82,7 +82,7 @@ describe("ResultsTable", () => {
   it("shows full metrics, configuration and provenance in the detail dialog", () => {
     renderTable({ openId: "dpcache-k20" });
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByRole("heading")).toHaveTextContent("DPCache K=20");
+    expect(within(dialog).getByRole("heading", { level: 2 })).toHaveTextContent("DPCache K=20");
     const m = k20.metrics;
     expect(cellOf("Latency")).toHaveTextContent(`${m.latencyS.toFixed(1)}s`);
     expect(cellOf("LPIPS mean")).toHaveTextContent(
@@ -91,7 +91,7 @@ describe("ResultsTable", () => {
         .padStart(3, "0")}`,
     );
     expect(cellOf("PSNR")).toHaveTextContent(`${m.psnr!.mean.toFixed(1)} dB`);
-    expect(cellOf("PSNR min")).toHaveTextContent(`${m.psnr!.min.toFixed(1)} dB`);
+    expect(within(dialog).getByText(`min ${m.psnr!.min.toFixed(1)} dB`)).toBeInTheDocument();
     expect(cellOf("SSIM")).toHaveTextContent(m.ssim!.mean.toFixed(3));
     expect(cellOf("ImageReward")).toHaveTextContent(m.imageReward!.mean.toFixed(2));
     expect(cellOf("Peak VRAM")).toHaveTextContent(`${m.peakVramGb!.toFixed(1)} GB`);
@@ -100,29 +100,23 @@ describe("ResultsTable", () => {
       expect.stringContaining("configs/dpcache-K20.json"),
     );
     expect(within(dialog).getByText("Verified")).toBeInTheDocument();
-    expect(cellOf("Measured on")).toHaveTextContent(
-      `heldout-v1 (20 prompt/seed pairs), ${k20.date}`,
-    );
+    expect(
+      within(dialog).getByText(`measured on heldout-v1 (20 prompt/seed pairs), ${k20.date}`),
+    ).toBeInTheDocument();
     for (const line of k20.configuration)
       expect(within(dialog).getByText(line)).toBeInTheDocument();
   });
 
-  it("renders em dashes for the baseline's null metrics and provenance", () => {
+  it("renders em dashes for the baseline's null metrics and omits absent provenance", () => {
     renderTable({ openId: "sglang-native" });
     const cells = within(rowOf("Baseline")).getAllByRole("cell", { hidden: true });
     expect(cells[1]).toHaveTextContent(/^—$/);
-    for (const label of [
-      "LPIPS mean",
-      "LPIPS max",
-      "PSNR",
-      "SSIM",
-      "Config",
-      "Source",
-      "Submission",
-    ])
+    for (const label of ["LPIPS mean", "PSNR", "SSIM"])
       expect(cellOf(label)).toHaveTextContent(/^—$/);
-    for (const label of ["Config", "Submission"])
-      expect(cellOf(label).querySelector("a")).toBeNull();
+    const dialog = screen.getByRole("dialog");
+    expect(cellOf("Engine")).toHaveTextContent("sglang-diffusion");
+    for (const label of ["Config", "Source", "Submission"])
+      expect(within(dialog).queryByText(label)).toBeNull();
     expect(screen.getByText("none")).toBeInTheDocument();
   });
 
