@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BENCHMARKS, MODELS } from "@/data/frontier";
 import { REPO_URL } from "@/data/site";
-import { BenchmarkCard } from "@/components/frontier/BenchmarkCard";
+import { ModelCard } from "@/components/frontier/ModelCard";
 import { SiteShell } from "@/components/frontier/SiteShell";
 
 export const Route = createFileRoute("/")({
@@ -27,10 +27,10 @@ export const Route = createFileRoute("/")({
 });
 
 const METHOD = [
-  "Baseline: the engine's default run — BF16, 50 steps, no cache, no quantization. Every recipe is compared against its images.",
-  "Quality: LPIPS, PSNR and SSIM against the baseline images plus ImageReward, over 100 fixed prompts. LPIPS is the axis on every chart.",
-  "Speed: one image from prompt to output (median after warmup), and images per second with 4 concurrent requests.",
-  "Verified means re-measured by the maintainers on a private held-out prompt set; Submitted means measured on the public prompt set only.",
+  "Baseline: the engine's default BF16, 50-step run. Every recipe is compared to its images.",
+  "Quality: LPIPS (the chart axis), PSNR, SSIM vs. baseline, plus ImageReward, over 100 fixed prompts.",
+  "Speed: seconds per image (median after warmup) and images per second at 4 concurrent requests.",
+  "Verified: re-measured by the maintainers on a private held-out prompt set.",
 ];
 
 const Label = ({ children }: { children: string }) => (
@@ -45,29 +45,28 @@ function Index() {
   );
   return (
     <SiteShell>
-      <div className="max-w-xl pt-10 text-[15px]">
-        <p>The fastest way to run each model on each GPU without losing quality.</p>
-        <p className="mt-1 text-muted-foreground">
-          Every number is measured on the same machine, with the same prompts, against the same
-          baseline.
-        </p>
-      </div>
+      <p className="max-w-xl pt-10 text-[15px] text-muted-foreground">
+        The fastest recipe for each model on each GPU, at a quality loss you choose.
+      </p>
 
       {groups.map((g) => (
         <section key={g} className="mt-10">
           <Label>{g}</Label>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {MODELS.filter((m) => m.group === g)
-              .flatMap((m) => BENCHMARKS.filter((b) => b.model === m.slug))
-              .map((b) => (
-                <Link
-                  key={`${b.model}/${b.hardware}`}
-                  to="/$model/$hardware"
-                  params={{ model: b.model, hardware: b.hardware }}
-                  className="block rounded-sm border border-border hover:bg-surface-alt"
-                >
-                  <BenchmarkCard bench={b} />
-                </Link>
+              .map((m) => ({ m, benches: BENCHMARKS.filter((b) => b.model === m.slug) }))
+              .filter(({ benches }) => benches.length)
+              .map(({ m, benches }) => (
+                <ModelCard
+                  key={m.slug}
+                  model={m}
+                  benches={benches}
+                  renderLink={(b, children) => (
+                    <Link to="/$model/$hardware" params={{ model: b.model, hardware: b.hardware }}>
+                      {children}
+                    </Link>
+                  )}
+                />
               ))}
           </div>
         </section>
@@ -85,8 +84,7 @@ function Index() {
       <section id="submit" className="mt-14 scroll-mt-6">
         <Label>Submit a recipe</Label>
         <p className="mt-3 max-w-2xl text-[14px]">
-          One pull request adds one recipe config. Maintainers run it on the reference machine and
-          publish the result.{" "}
+          One pull request, one recipe config; maintainers measure and publish it.{" "}
           <a
             href={REPO_URL}
             target="_blank"

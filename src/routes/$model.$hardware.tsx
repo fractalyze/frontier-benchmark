@@ -77,19 +77,33 @@ function BenchmarkPage() {
     <SiteShell>
       <section className="pt-8">
         <IdentitySelect model={bench.model} hardware={bench.hardware} />
-        <p className="num mt-2 text-[12px] text-muted-foreground">
+        <dl className="num mt-4 flex flex-wrap gap-x-7 gap-y-2">
           {[
-            fmtResolution(bench.protocol.resolution),
-            `batch ${bench.protocol.batch}`,
-            `${bench.protocol.steps} steps`,
-            bench.protocol.precision,
-            `protocol ${bench.protocol.version}`,
-            `${bench.promptSets.public.count} public prompts`,
-            `${bench.throughputConcurrency} concurrent`,
-            `updated ${bench.updated}`,
-          ].join(" · ")}
-          {isDemo(bench) && <span className="ml-3 text-experimental">demo data</span>}
-        </p>
+            ["Resolution", fmtResolution(bench.protocol.resolution)],
+            ["Batch", bench.protocol.batch],
+            ["Steps", bench.protocol.steps],
+            ["Precision", bench.protocol.precision],
+            ["Protocol", bench.protocol.version],
+            ["Prompts", `${bench.promptSets.public.count} public`],
+            ["Concurrency", bench.throughputConcurrency],
+            ["Updated", bench.updated],
+          ].map(([k, v]) => (
+            <div key={k}>
+              <dt className="text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
+                {k}
+              </dt>
+              <dd className="text-[13px]">{v}</dd>
+            </div>
+          ))}
+          {isDemo(bench) && (
+            <div>
+              <dt className="text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
+                Data
+              </dt>
+              <dd className="text-[13px] text-experimental">demo placeholders</dd>
+            </div>
+          )}
+        </dl>
       </section>
 
       <section className="mt-6">
@@ -100,8 +114,8 @@ function BenchmarkPage() {
           onSelect={select}
         />
 
-        <div className="mt-3 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-baseline sm:gap-10">
-          <div className="flex items-baseline gap-5">
+        <div className="mt-3 border-t border-border pt-4">
+          <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
             <span className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
               Quality limit
             </span>
@@ -120,19 +134,22 @@ function BenchmarkPage() {
               </button>
             ))}
           </div>
-          {selected ? (
-            <div className="min-w-0 text-[14px]">
-              <span className="num font-medium">
-                {selected.metrics.latencyS.toFixed(1)}s · LPIPS {fmtLpips(lpipsOf(selected))} ·{" "}
-                {speedup(bench, selected).toFixed(1)}×
-              </span>
-              <span className="ml-3 text-muted-foreground">{selected.name}</span>
-            </div>
-          ) : (
-            <span className="text-[14px] text-muted-foreground">
-              No measured recipe meets this limit.
-            </span>
-          )}
+          <p className="mt-3 text-[14px]">
+            {selected ? (
+              <>
+                <span className="font-medium">{selected.name}</span>
+                <span className="num ml-3 text-muted-foreground">
+                  {[
+                    `${selected.metrics.latencyS.toFixed(1)}s`,
+                    `${speedup(bench, selected).toFixed(1)}× faster`,
+                    `LPIPS ${fmtLpips(lpipsOf(selected))}`,
+                  ].join(" · ")}
+                </span>
+              </>
+            ) : (
+              <span className="text-muted-foreground">No measured recipe meets this limit.</span>
+            )}
+          </p>
         </div>
       </section>
 
