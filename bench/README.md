@@ -30,6 +30,11 @@ the recipe, scores it against the baseline, and rewrites
 | `calibrate.py` | records the engine's DPCache calibration captures under a recipe's runtime (`sglang.multimodal_gen.tools.dpcache_calibrate record`/`plan`) and writes one schedule per budget to `configs/dpcache-<recipe>/K<budget>.json`. |
 | `env.py`, `sampler.py` | GPU0 pin, lock directories, `nvidia-smi` stamps and under-load clock/temperature sampling (from qwen-image-opt). |
 
+`protocol.MODELS` maps a benchmark's model slug to its checkpoint (repo, pinned
+revision, engine model id); `protocol.offload` picks the residency (`none` keeps
+every component on the GPU, as FLUX.2 klein 4B does). Pass `--model` to
+`bench.run` / `bench.emit` for anything but Qwen-Image 2.1.
+
 Recipe config files (`configs/<id>.json`, pointed to by `configPath`) come in three
 shapes: a DPCache schedule artifact (served through `dpcache_schedule_dir`,
 requested as `dpcache_budget`), `sglang-cache-dit-params`, or `sglang-runtime`

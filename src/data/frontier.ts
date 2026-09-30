@@ -42,6 +42,7 @@ export const MODELS: ModelInfo[] = [
   { slug: "qwen-image-2.1", name: "Qwen-Image 2.1", group: "Image" },
   { slug: "qwen-image-2512", name: "Qwen-Image 2512", group: "Image" },
   { slug: "flux-1", name: "FLUX.1", group: "Image" },
+  { slug: "flux-2-klein-4b", name: "FLUX.2 [klein] 4B", group: "Image" },
   { slug: "flux-2", name: "FLUX.2", group: "Image" },
   { slug: "z-image", name: "Z-Image", group: "Image" },
   { slug: "ideogram-4", name: "Ideogram 4", group: "Image" },

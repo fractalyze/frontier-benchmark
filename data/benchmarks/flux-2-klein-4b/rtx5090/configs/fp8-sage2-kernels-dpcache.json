@@ -1,0 +1,16 @@
+{
+  "schema": "sglang-runtime",
+  "note": "Fractalyze showcase, fastest: every block FP8, SageAttention2, fused concat+quantize kernel, DPCache K=16 (schedules/fast)",
+  "server": {
+    "quantization": "fp8",
+    "component_attention_backends": {
+      "transformer": "sage_attn"
+    },
+    "dit_layerwise_offload": false
+  },
+  "env": {
+    "SGLANG_ENABLE_FLUX2_FUSED_CAT_FP8_QUANT": "1"
+  },
+  "request": {},
+  "dpcache_schedule": "data/benchmarks/flux-2-klein-4b/rtx5090/configs/dpcache-fast/K16.json"
+}

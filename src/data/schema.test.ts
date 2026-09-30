@@ -46,7 +46,7 @@ describe("every file under data/benchmarks validates", () => {
   });
 
   it("passes the loader's cross-file rules", () => {
-    const [bench] = buildBenchmarks(files);
+    const bench = buildBenchmarks(files).find((b) => b.model === "qwen-image-2.1");
     expect(bench?.baseline.id).toBe("sglang-native");
     expect(bench?.recipes).toHaveLength(10);
   });
@@ -163,7 +163,7 @@ describe("loader rejects", () => {
     metricsOf(r)["ssim"] = null;
     metricsOf(r)["imageReward"] = null;
     metricsOf(r)["peakVramGb"] = null;
-    expect(buildBenchmarks(f)[0]?.recipes.find((x) => x.id === "dpcache-k12")).toBeDefined();
+    expect(buildBenchmarks(f).find((b) => b.model === "qwen-image-2.1")?.recipes.find((x) => x.id === "dpcache-k12")).toBeDefined();
   });
 
   it("links every configPath to a file that exists", () => {

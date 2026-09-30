@@ -1,0 +1,19 @@
+{
+  "schema": "sglang-runtime",
+  "note": "Fractalyze showcase, paper-level: FP8 except the five double-stream blocks, SageAttention2, fused concat+quantize kernel, DPCache K=16 (schedule from huggingface.co/Fractalyze/flux2-klein-base-4b-rtx5090 schedules/paper)",
+  "server": {
+    "quantization": "fp8",
+    "quantization_ignored_layers": [
+      "transformer_blocks"
+    ],
+    "component_attention_backends": {
+      "transformer": "sage_attn"
+    },
+    "dit_layerwise_offload": false
+  },
+  "env": {
+    "SGLANG_ENABLE_FLUX2_FUSED_CAT_FP8_QUANT": "1"
+  },
+  "request": {},
+  "dpcache_schedule": "data/benchmarks/flux-2-klein-4b/rtx5090/configs/dpcache-paper/K16.json"
+}
