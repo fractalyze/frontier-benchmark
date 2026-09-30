@@ -45,9 +45,18 @@ function Index() {
   );
   return (
     <SiteShell>
-      <p className="max-w-xl pt-10 text-[15px] text-muted-foreground">
-        The fastest recipe for each model on each GPU, at a quality loss you choose.
-      </p>
+      <div className="max-w-xl pt-10 text-[15px]">
+        <p className="text-muted-foreground">
+          For one model on one GPU, each optimization recipe is measured against the baseline. The
+          frontier is the recipe that solves
+        </p>
+        <p className="num mt-3 text-[14px]">
+          <span className="text-muted-foreground">minimize</span> latency(recipe)
+          <br />
+          <span className="text-muted-foreground">subject to</span> LPIPS(recipe, baseline) ≤ ε
+        </p>
+        <p className="mt-3 text-muted-foreground">for the quality loss ε you choose.</p>
+      </div>
 
       {groups.map((g) => (
         <section key={g} className="mt-10">

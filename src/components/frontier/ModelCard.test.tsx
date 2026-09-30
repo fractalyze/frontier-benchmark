@@ -34,7 +34,7 @@ describe("ModelCard", () => {
     expect(title).toHaveClass("after:absolute", "after:inset-0");
     expect(screen.getByText("baseline 12.0s")).toBeInTheDocument();
     const select = screen.getByRole("combobox", { name: "Hardware" });
-    expect(select).toHaveValue("rtx5090");
+    expect(select).toHaveTextContent("RTX 5090");
     expect(select).toHaveClass("z-10");
   });
 
@@ -71,10 +71,8 @@ describe("ModelCard", () => {
       baseline: bench.baseline,
     };
     render(<ModelCard model={model} benches={[bench, other]} renderLink={link} />);
-    // HardwareSelect lists hardware from BENCHMARKS, so the option must be forced in for the test.
-    const select = screen.getByRole("combobox", { name: "Hardware" });
-    select.append(new Option("H100", "h100"));
-    fireEvent.change(select, { target: { value: "h100" } });
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Hardware" }), { key: "ArrowDown" });
+    fireEvent.click(screen.getByRole("option", { name: "H100" }));
     expect(rows()[0]).toEqual(["≤ .01", "12.0s", "1.0×", "Baseline"]);
     expect(screen.getByText("Qwen-Image 2.1").closest("a")).toHaveAttribute(
       "href",

@@ -1,5 +1,12 @@
 import { useState, type ReactNode } from "react";
-import { fmtLimit, ladder, speedup, type Benchmark, type ModelInfo } from "@/data/frontier";
+import {
+  fmtLimit,
+  hardwareBySlug,
+  ladder,
+  speedup,
+  type Benchmark,
+  type ModelInfo,
+} from "@/data/frontier";
 import { HardwareSelect } from "./HardwareSelect";
 
 const DASH = "—";
@@ -32,7 +39,7 @@ export function ModelCard({
           </span>,
         )}
         <HardwareSelect
-          model={model.slug}
+          hardware={benches.map((b) => hardwareBySlug(b.hardware)).filter((h) => h !== undefined)}
           value={bench.hardware}
           onChange={setHardware}
           className="relative z-10 text-[13px] text-muted-foreground"

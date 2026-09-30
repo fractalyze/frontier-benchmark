@@ -1,51 +1,40 @@
-import { BENCHMARKS, HARDWARE } from "@/data/frontier";
+import { ChevronDown } from "lucide-react";
+import * as SelectPrimitive from "@radix-ui/react-select";
+import { SelectContent, SelectItem } from "@/components/ui/select";
+import type { HardwareInfo } from "@/data/frontier";
 import { cn } from "@/lib/utils";
 
-/** Native select over the hardware that has data for one model; styled to sit inside text. */
+/** Inline hardware picker: reads as text with a chevron, opens the site-styled menu. */
 export function HardwareSelect({
-  model,
+  hardware,
   value,
   onChange,
   className,
 }: {
-  model: string;
+  hardware: HardwareInfo[];
   value: string;
   onChange: (hardware: string) => void;
   className?: string;
 }) {
-  const hws = HARDWARE.filter((h) =>
-    BENCHMARKS.some((b) => b.model === model && b.hardware === h.slug),
-  );
-  const groups = [...new Set(hws.map((h) => h.group))];
   return (
-    <span className="relative inline-block">
-      <select
+    <SelectPrimitive.Root value={value} onValueChange={onChange}>
+      <SelectPrimitive.Trigger
         aria-label="Hardware"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "cursor-pointer appearance-none bg-transparent pr-4 outline-none hover:text-primary focus-visible:underline",
+          "inline-flex cursor-pointer items-center gap-1 outline-none hover:text-primary focus-visible:underline",
           className,
         )}
       >
-        {groups.map((g) => (
-          <optgroup key={g} label={g}>
-            {hws
-              .filter((h) => h.group === g)
-              .map((h) => (
-                <option key={h.slug} value={h.slug}>
-                  {h.name}
-                </option>
-              ))}
-          </optgroup>
+        <SelectPrimitive.Value />
+        <ChevronDown aria-hidden="true" className="size-[0.7em] opacity-60" />
+      </SelectPrimitive.Trigger>
+      <SelectContent align="start" className="num text-[13px] font-normal">
+        {hardware.map((h) => (
+          <SelectItem key={h.slug} value={h.slug}>
+            {h.name}
+          </SelectItem>
         ))}
-      </select>
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute top-1/2 right-0 -translate-y-1/2 text-[0.6em] text-muted-foreground"
-      >
-        ▼
-      </span>
-    </span>
+      </SelectContent>
+    </SelectPrimitive.Root>
   );
 }
