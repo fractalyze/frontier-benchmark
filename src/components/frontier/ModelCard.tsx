@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { fmtLimit, ladder, type Benchmark, type ModelInfo } from "@/data/frontier";
+import { fmtLimit, ladder, speedup, type Benchmark, type ModelInfo } from "@/data/frontier";
 import { HardwareSelect } from "./HardwareSelect";
 
 const DASH = "—";
@@ -51,6 +51,9 @@ export function ModelCard({
               </td>
               <td className="py-1.5 pr-3 text-right whitespace-nowrap font-medium">
                 {recipe ? `${recipe.metrics.latencyS.toFixed(1)}s` : DASH}
+              </td>
+              <td className="py-1.5 pr-3 text-right whitespace-nowrap text-muted-foreground">
+                {recipe ? `${speedup(bench, recipe).toFixed(1)}×` : DASH}
               </td>
               <td className="w-full max-w-0 truncate py-1.5 text-muted-foreground">
                 {recipe ? recipe.name : DASH}

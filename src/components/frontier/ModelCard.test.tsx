@@ -38,20 +38,27 @@ describe("ModelCard", () => {
     expect(select).toHaveClass("z-10");
   });
 
-  it("renders latency and recipe for each default limit", () => {
+  it("renders latency, speedup and recipe for each default limit", () => {
     render(<ModelCard model={model} benches={[bench]} renderLink={link} />);
     const expected = ladder(bench).map(({ limit, recipe }) => [
       `≤ ${fmtLimit(limit)}`,
       `${recipe!.metrics.latencyS.toFixed(1)}s`,
+      `${speedup(bench, recipe!).toFixed(1)}×`,
       recipe!.name,
     ]);
     expect(rows()).toEqual(expected);
     // Not tautological: literal values from the demo data.
-    expect(rows()[0]).toEqual(["≤ .01", "6.1s", "DPCache"]);
-    expect(rows()[1]).toEqual(["≤ .05", "1.7s", "DPCache + FP8 + SpargeAttn + torch.compile"]);
+    expect(rows()[0]).toEqual(["≤ .01", "6.1s", "2.0×", "DPCache"]);
+    expect(rows()[1]).toEqual([
+      "≤ .05",
+      "1.7s",
+      "7.1×",
+      "DPCache + FP8 + SpargeAttn + torch.compile",
+    ]);
     expect(rows()[2]).toEqual([
       "≤ .10",
       "1.2s",
+      "10.0×",
       "20-step schedule + DPCache + FP8 + torch.compile",
     ]);
   });
@@ -68,7 +75,7 @@ describe("ModelCard", () => {
     const select = screen.getByRole("combobox", { name: "Hardware" });
     select.append(new Option("H100", "h100"));
     fireEvent.change(select, { target: { value: "h100" } });
-    expect(rows()[0]).toEqual(["≤ .01", "12.0s", "Baseline"]);
+    expect(rows()[0]).toEqual(["≤ .01", "12.0s", "1.0×", "Baseline"]);
     expect(screen.getByText("Qwen-Image 2.1").closest("a")).toHaveAttribute(
       "href",
       "/qwen-image-2.1/h100",
@@ -78,7 +85,7 @@ describe("ModelCard", () => {
   it("renders em dashes when no recipe meets a limit", () => {
     const empty: Benchmark = { ...bench, recipes: [] };
     render(<ModelCard model={model} benches={[empty]} renderLink={link} />);
-    for (const cells of rows()) expect(cells.slice(1)).toEqual(["—", "—"]);
+    for (const cells of rows()) expect(cells.slice(1)).toEqual(["—", "—", "—"]);
     expect(screen.queryByText(/NaN|undefined/)).toBeNull();
   });
 });
