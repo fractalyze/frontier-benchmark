@@ -1,0 +1,11 @@
+{
+  "schema": "sglang-runtime",
+  "note": "online per-channel FP8 for the DiT; SM120 block-scaled GEMM route is the engine default",
+  "server": {
+    "component_quantizations": {
+      "transformer": "fp8"
+    }
+  },
+  "env": {},
+  "request": {}
+}

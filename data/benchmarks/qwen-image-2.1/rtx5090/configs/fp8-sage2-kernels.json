@@ -1,0 +1,17 @@
+{
+  "schema": "sglang-runtime",
+  "note": null,
+  "server": {
+    "component_quantizations": {
+      "transformer": "fp8"
+    },
+    "attention_backend": "sage_attn"
+  },
+  "env": {
+    "SGLANG_ENABLE_QWEN3VL_TEXT_FUSED_RMSNORM": "1",
+    "SGLANG_ENABLE_QWEN3VL_TEXT_CUDA_GRAPH": "1",
+    "SGLANG_ENABLE_QWEN_IMAGE21_VAE_CHANNELS_LAST": "1",
+    "SGLANG_ENABLE_QWEN_IMAGE21_VAE_FP8_CONV": "1"
+  },
+  "request": {}
+}

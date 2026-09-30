@@ -1,0 +1,45 @@
+{
+  "id": "cachedit-conservative",
+  "engine": {
+    "name": "sglang-diffusion",
+    "version": "5ead00ae6",
+    "url": "https://github.com/sgl-project/sglang/pull/40848"
+  },
+  "optimization": [
+    {
+      "technique": "Feature Caching",
+      "method": "Cache-DiT conservative"
+    }
+  ],
+  "configuration": [
+    "residual_diff_threshold 0.12",
+    "max_warmup_steps 10",
+    "max_continuous_cached_steps 1",
+    "Fn=1 Bn=1",
+    "preset chosen on 8 validation prompts for LPIPS mean \u2264 .05, max \u2264 .10"
+  ],
+  "configPath": "data/benchmarks/qwen-image-2.1/rtx5090/configs/cachedit-conservative.json",
+  "metrics": {
+    "latencyS": 7.801,
+    "peakVramGb": 20.2,
+    "lpips": {
+      "mean": 0.0166,
+      "max": 0.0374
+    },
+    "psnr": {
+      "mean": 36.6,
+      "min": 27.4
+    },
+    "ssim": {
+      "mean": 0.9832
+    },
+    "imageReward": {
+      "mean": 0.996
+    }
+  },
+  "status": "Verified",
+  "measuredOn": "held-out",
+  "date": "2026-09-30",
+  "sourceUrl": null,
+  "pr": null
+}

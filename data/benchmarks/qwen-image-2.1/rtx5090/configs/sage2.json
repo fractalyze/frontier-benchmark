@@ -1,0 +1,9 @@
+{
+  "schema": "sglang-runtime",
+  "note": null,
+  "server": {
+    "attention_backend": "sage_attn"
+  },
+  "env": {},
+  "request": {}
+}

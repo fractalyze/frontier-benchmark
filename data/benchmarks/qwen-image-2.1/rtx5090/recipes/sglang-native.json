@@ -1,0 +1,32 @@
+{
+  "id": "sglang-native",
+  "engine": {
+    "name": "sglang-diffusion",
+    "version": "5ead00ae6",
+    "url": "https://github.com/sgl-project/sglang/pull/40848"
+  },
+  "optimization": [],
+  "configuration": [
+    "40 steps",
+    "BF16",
+    "torch_sdpa attention",
+    "DiT layerwise offload",
+    "eager (no compile, no CUDA graphs)"
+  ],
+  "configPath": null,
+  "metrics": {
+    "latencyS": 13.578,
+    "peakVramGb": 20.2,
+    "lpips": null,
+    "psnr": null,
+    "ssim": null,
+    "imageReward": {
+      "mean": 1.018
+    }
+  },
+  "status": "Verified",
+  "measuredOn": "held-out",
+  "date": "2026-09-30",
+  "sourceUrl": null,
+  "pr": null
+}

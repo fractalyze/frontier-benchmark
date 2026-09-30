@@ -1,0 +1,27 @@
+{
+  "model": "qwen-image-2.1",
+  "hardware": "rtx5090",
+  "protocol": {
+    "version": "v0.5",
+    "resolution": "1024x1024",
+    "batch": 1,
+    "steps": 40,
+    "precision": "BF16",
+    "guidance": 1.0,
+    "attention": "torch_sdpa",
+    "offload": "text encoder layerwise"
+  },
+  "promptSets": {
+    "public": {
+      "name": "comparator-v1",
+      "count": 20,
+      "path": "data/prompts/qwen-image-2.1-comparator-v1.json"
+    },
+    "held-out": {
+      "name": "heldout-v1",
+      "count": 20
+    }
+  },
+  "timing": "warm end-to-end client wall time per image; every recipe interleaved with the baseline over 4 prompts, 3 repeats",
+  "baselineRecipe": "sglang-native"
+}

@@ -1,0 +1,43 @@
+{
+  "id": "dpcache-k20",
+  "engine": {
+    "name": "sglang-diffusion",
+    "version": "5ead00ae6",
+    "url": "https://github.com/sgl-project/sglang/pull/40848"
+  },
+  "optimization": [
+    {
+      "technique": "Feature Caching",
+      "method": "DPCache K=20"
+    }
+  ],
+  "configuration": [
+    "20 of 40 steps run the full block stack",
+    "predicted steps skip all 32 blocks and load no block weights",
+    "schedule from an exact DP over PACT costs, calibrated on 10 prompts (max_gap 8)"
+  ],
+  "configPath": "data/benchmarks/qwen-image-2.1/rtx5090/configs/dpcache-K20.json",
+  "metrics": {
+    "latencyS": 7.061,
+    "peakVramGb": 20.2,
+    "lpips": {
+      "mean": 0.0113,
+      "max": 0.0676
+    },
+    "psnr": {
+      "mean": 38.3,
+      "min": 21.8
+    },
+    "ssim": {
+      "mean": 0.9862
+    },
+    "imageReward": {
+      "mean": 1.009
+    }
+  },
+  "status": "Verified",
+  "measuredOn": "held-out",
+  "date": "2026-09-30",
+  "sourceUrl": null,
+  "pr": null
+}

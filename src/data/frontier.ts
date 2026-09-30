@@ -1,35 +1,29 @@
 /**
  * Inference Frontier data layer.
- * ALL RECIPE NUMBERS ARE DEMO PLACEHOLDERS — not benchmark results.
+ * Numbers live in data/benchmarks/<model>/<hardware>/{benchmark.json,recipes/<id>.json},
+ * validated with the zod schemas in ./schema at load time.
  * Hierarchy: Recipe → Techniques → Methods → Configuration.
  */
+import {
+  BenchmarkFileSchema,
+  RecipeFileSchema,
+  type BenchmarkFile,
+  type RecipeFile,
+} from "./schema";
+import type { z } from "zod";
 
-export type Technique =
-  | "Step Reduction"
-  | "Feature Caching"
-  | "Sparse Attention"
-  | "Token Pruning"
-  | "Quantization"
-  | "Kernel Optimization"
-  | "Compilation"
-  | "Parallelism";
+export type { Technique, VerificationStatus, MeasuredOn } from "./schema";
 
-export type VerificationStatus = "Verified" | "Submitted" | "Experimental";
-
-export interface Recipe {
-  id: string;
-  /** The optimization combination itself is the name. */
+export interface Recipe extends RecipeFile {
+  /** Methods joined with " + "; "Baseline" for the reference recipe. */
   name: string;
-  optimization: { technique: Technique; method: string }[];
-  configuration: string[];
-  latencyS: number;
-  lpipsMean: number;
-  lpipsP95: number;
-  peakVramGb: number;
-  status: VerificationStatus;
-  configUrl: string;
-  commit: string;
-  pr: number;
+}
+
+export interface Benchmark extends BenchmarkFile {
+  recipes: Recipe[];
+  baseline: Recipe;
+  /** Max recipe date. */
+  updated: string;
 }
 
 export interface ModelInfo {
@@ -43,6 +37,7 @@ export interface HardwareInfo {
   group: "Consumer" | "Datacenter";
 }
 
+/** Catalogue of what the site knows about; a benchmark must reference entries from here. */
 export const MODELS: ModelInfo[] = [
   { slug: "qwen-image-2.1", name: "Qwen-Image 2.1", group: "Image" },
   { slug: "qwen-image-2512", name: "Qwen-Image 2512", group: "Image" },
@@ -61,93 +56,131 @@ export const HARDWARE: HardwareInfo[] = [
   { slug: "b200", name: "B200", group: "Datacenter" },
 ];
 
-export interface Benchmark {
-  model: string;
-  hardware: string;
-  resolution: string;
-  batch: number;
-  training: string;
-  protocol: string;
-  date: string;
-  baselineLatencyS: number;
-  recipes: Recipe[];
+const err = (file: string, msg: string) => new Error(`${file}: ${msg}`);
+
+function parse<T>(schema: z.ZodType<T>, data: unknown, file: string): T {
+  const res = schema.safeParse(data);
+  if (res.success) return res.data;
+  const issues = res.error.issues.map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`);
+  throw err(file, `invalid\n  ${issues.join("\n  ")}`);
 }
 
-const gh = "https://github.com/inference-frontier/benchmarks";
-const r = (
-  id: string,
-  name: string,
-  optimization: Recipe["optimization"],
-  configuration: string[],
-  latencyS: number,
-  lpipsMean: number,
-  lpipsP95: number,
-  peakVramGb: number,
-  status: VerificationStatus,
-  commit: string,
-  pr: number,
-): Recipe => ({
-  id,
-  name,
-  optimization,
-  configuration,
-  latencyS,
-  lpipsMean,
-  lpipsP95,
-  peakVramGb,
-  status,
-  configUrl: `${gh}/blob/main/recipes/${id}/config.yaml`,
-  commit,
-  pr,
-});
+const recipeName = (r: RecipeFile) =>
+  r.optimization.length ? r.optimization.map((o) => o.method).join(" + ") : "Baseline";
 
-const DPC = { technique: "Feature Caching" as const, method: "DPCache" };
-const FP8 = { technique: "Quantization" as const, method: "FP8 W8A8" };
-const SPA = { technique: "Sparse Attention" as const, method: "SpargeAttn" };
-const CMP = { technique: "Compilation" as const, method: "torch.compile" };
+/**
+ * Pure "files → benchmarks" builder. Keys are file paths (any prefix), values the parsed JSON;
+ * files are grouped by the directory that holds benchmark.json.
+ */
+export function buildBenchmarks(files: Record<string, unknown>): Benchmark[] {
+  const dirs = new Map<string, { bench?: string; recipes: string[] }>();
+  const group = (dir: string) => dirs.get(dir) ?? dirs.set(dir, { recipes: [] }).get(dir)!;
+  for (const file of Object.keys(files)) {
+    const m = /^(.*)\/(benchmark\.json|recipes\/[^/]+\.json)$/.exec(file);
+    if (!m) throw err(file, "not benchmark.json or recipes/<id>.json");
+    const g = group(m[1]!);
+    if (m[2] === "benchmark.json") g.bench = file;
+    else g.recipes.push(file);
+  }
 
-/** Only combinations that actually have (demo) data. */
-export const BENCHMARKS: Benchmark[] = [
-  {
-    model: "qwen-image-2.1",
-    hardware: "rtx5090",
-    resolution: "1024×1024",
-    batch: 1,
-    training: "No additional training",
-    protocol: "protocol v0.3",
-    date: "2026-09-21",
-    baselineLatencyS: 12.0,
-    recipes: [
-      r("sglang-default", "SGLang Default", [], ["50 steps · FlowMatch Euler", "BF16"], 12.0, 0, 0, 23.4, "Verified", "3f0b1d7", 1),
-      r("dpcache", "DPCache", [DPC], ["cache interval 3", "warmup 6 steps"], 6.1, 0.004, 0.009, 24.1, "Verified", "b72e0c4", 21),
-      r("fp8", "FP8", [FP8], ["FP8 E4M3 W8A8", "per-channel scales"], 5.1, 0.014, 0.027, 15.2, "Verified", "91ac3e2", 14),
-      r("teacache", "TeaCache", [{ technique: "Feature Caching", method: "TeaCache" }], ["rel_l1_thresh 0.25"], 4.9, 0.031, 0.061, 23.9, "Verified", "0d4f8a1", 17),
-      r("cachedit-fp8", "Cache-DiT + FP8", [{ technique: "Feature Caching", method: "Cache-DiT" }, FP8], ["Fn=8 Bn=0 threshold 0.08", "FP8 E4M3 W8A8"], 4.3, 0.012, 0.024, 15.6, "Verified", "c5e2917", 33),
-      r("teacache-fp8", "TeaCache + FP8", [{ technique: "Feature Caching", method: "TeaCache" }, FP8], ["rel_l1_thresh 0.3", "FP8 E4M3 W8A8"], 3.6, 0.052, 0.098, 15.4, "Submitted", "e19b5d0", 49),
-      r("dpcache-fp8", "DPCache + FP8", [DPC, FP8], ["cache interval 3", "FP8 E4M3 W8A8"], 2.4, 0.028, 0.051, 15.7, "Verified", "7a0c3f5", 41),
-      r("dpcache-fp8-sparge", "DPCache + FP8 + SpargeAttn", [DPC, FP8, SPA], ["cache interval 3", "FP8 E4M3 W8A8", "sparsity 0.6 · block 128"], 2.0, 0.041, 0.074, 15.8, "Verified", "f28d6b9", 52),
-      r("dpcache-fp8-sparge-compile", "DPCache + FP8 + SpargeAttn + torch.compile", [DPC, FP8, SPA, CMP], ["cache interval 3", "FP8 E4M3 W8A8", "sparsity 0.6 · block 128", "mode=max-autotune · cudagraphs"], 1.7, 0.047, 0.082, 15.8, "Verified", "a41c9e2", 58),
-      r("steps20-dpcache-fp8-compile", "20 steps + DPCache + FP8 + torch.compile", [{ technique: "Step Reduction", method: "20-step schedule" }, DPC, FP8, CMP], ["20 steps · shifted sigmas", "cache interval 2", "FP8 E4M3 W8A8", "mode=max-autotune"], 1.2, 0.086, 0.14, 15.7, "Experimental", "d93a01e", 63),
-    ],
-  },
-];
+  const out: Benchmark[] = [];
+  const seenPairs = new Set<string>();
+  for (const [dir, g] of dirs) {
+    if (!g.bench) throw err(`${dir}/benchmark.json`, "missing");
+    const bench = parse(BenchmarkFileSchema, files[g.bench], g.bench);
+    if (!MODELS.some((x) => x.slug === bench.model))
+      throw err(g.bench, `unknown model "${bench.model}"`);
+    if (!HARDWARE.some((x) => x.slug === bench.hardware))
+      throw err(g.bench, `unknown hardware "${bench.hardware}"`);
+    // The directory is the URL; a mis-copied folder must not silently publish under another pair.
+    if (!dir.endsWith(`/${bench.model}/${bench.hardware}`))
+      throw err(
+        g.bench,
+        `directory does not match model/hardware "${bench.model}/${bench.hardware}"`,
+      );
+    const pair = `${bench.model}/${bench.hardware}`;
+    if (seenPairs.has(pair)) throw err(g.bench, `duplicate benchmark for "${pair}"`);
+    seenPairs.add(pair);
+
+    if (!g.recipes.includes(`${dir}/recipes/${bench.baselineRecipe}.json`))
+      throw err(g.bench, `baselineRecipe "${bench.baselineRecipe}" has no recipe file`);
+
+    const seen = new Set<string>();
+    const recipes = g.recipes.sort().map((file): Recipe => {
+      const r = parse(RecipeFileSchema, files[file], file);
+      const stem = file.slice(file.lastIndexOf("/") + 1, -".json".length);
+      if (seen.has(r.id)) throw err(file, `duplicate recipe id "${r.id}"`);
+      seen.add(r.id);
+      if (r.id !== stem) throw err(file, `id "${r.id}" does not match filename`);
+      const isBaseline = r.id === bench.baselineRecipe;
+      const { lpips, psnr, ssim } = r.metrics;
+      if (isBaseline && (r.optimization.length || lpips || psnr || ssim))
+        throw err(file, "baseline must have optimization = [] and lpips/psnr/ssim = null");
+      if (!isBaseline) {
+        const missing = Object.entries({ optimization: r.optimization.length, lpips })
+          .filter(([, v]) => !v)
+          .map(([k]) => k);
+        if (missing.length) throw err(file, `non-baseline recipe is missing ${missing.join(", ")}`);
+      }
+      return { ...r, name: recipeName(r) };
+    });
+    const dates = recipes.map((r) => r.date).sort();
+    out.push({
+      ...bench,
+      recipes,
+      baseline: recipes.find((r) => r.id === bench.baselineRecipe)!,
+      updated: dates.at(-1)!,
+    });
+  }
+  return out.sort((a, b) => a.model.localeCompare(b.model) || a.hardware.localeCompare(b.hardware));
+}
+
+/** Only combinations that actually have data on disk. */
+export const BENCHMARKS: Benchmark[] = buildBenchmarks(
+  import.meta.glob(["/data/benchmarks/*/*/benchmark.json", "/data/benchmarks/*/*/recipes/*.json"], {
+    eager: true,
+    import: "default",
+  }),
+);
 
 export const findBenchmark = (model: string, hardware: string) =>
   BENCHMARKS.find((b) => b.model === model && b.hardware === hardware);
 export const modelBySlug = (s: string) => MODELS.find((m) => m.slug === s);
 export const hardwareBySlug = (s: string) => HARDWARE.find((h) => h.slug === s);
 
-export const speedup = (b: Benchmark, rec: Recipe) => b.baselineLatencyS / rec.latencyS;
+/** Baseline (lpips null) counts as zero loss. */
+export const lpipsOf = (rec: Recipe) => rec.metrics.lpips?.mean ?? 0;
+
+export const speedup = (b: Benchmark, rec: Recipe) =>
+  b.baseline.metrics.latencyS / rec.metrics.latencyS;
 
 export function paretoFrontier(recipes: Recipe[]) {
-  const sorted = [...recipes].sort((a, b) => a.latencyS - b.latencyS || a.lpipsMean - b.lpipsMean);
+  const sorted = [...recipes].sort(
+    (a, b) => a.metrics.latencyS - b.metrics.latencyS || lpipsOf(a) - lpipsOf(b),
+  );
   const out: Recipe[] = [];
   let best = Infinity;
-  for (const rec of sorted) if (rec.lpipsMean < best) { out.push(rec); best = rec.lpipsMean; }
+  for (const rec of sorted)
+    if (lpipsOf(rec) < best) {
+      out.push(rec);
+      best = lpipsOf(rec);
+    }
   return out;
 }
 
 export const fastestUnder = (recipes: Recipe[], limit: number) =>
-  recipes.filter((x) => x.lpipsMean <= limit).sort((a, b) => a.latencyS - b.latencyS)[0] ?? null;
+  recipes
+    .filter((x) => lpipsOf(x) <= limit)
+    .sort((a, b) => a.metrics.latencyS - b.metrics.latencyS)[0] ?? null;
 
-export const fmtLpips = (v: number) => (v === 0 ? "—" : v.toFixed(3).replace(/^0/, ""));
+/** Quality-limit buttons on the benchmark page (the ladder keeps its own coarser default). */
+export const QUALITY_LIMITS = [0.01, 0.03, 0.05, 0.1];
+
+export const ladder = (b: Benchmark, limits: number[] = [0.01, 0.05, 0.1]) =>
+  limits.map((limit) => ({ limit, recipe: fastestUnder(b.recipes, limit) }));
+
+export const fmtLpips = (v: number | null | undefined) =>
+  v ? v.toFixed(3).replace(/^0/, "") : "—";
+/** Quality limits are coarse (.01/.05/.10), so two decimals; fmtLpips's three are for measurements. */
+export const fmtLimit = (v: number) => v.toFixed(2).replace(/^0/, "");
+export const fmtResolution = (r: string) => r.replace("x", "×");

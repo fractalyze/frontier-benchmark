@@ -1,0 +1,23 @@
+{
+  "schema": "sglang-runtime",
+  "note": "the FP8 + SageAttention2 + fused-kernel stack (output head kept BF16 so DPCache can read its feature) with a DPCache schedule calibrated under this runtime",
+  "server": {
+    "component_quantizations": {
+      "transformer": "fp8"
+    },
+    "attention_backend": "sage_attn",
+    "component_quantization_ignored_layers": {
+      "transformer": [
+        "proj_out"
+      ]
+    }
+  },
+  "env": {
+    "SGLANG_ENABLE_QWEN3VL_TEXT_FUSED_RMSNORM": "1",
+    "SGLANG_ENABLE_QWEN3VL_TEXT_CUDA_GRAPH": "1",
+    "SGLANG_ENABLE_QWEN_IMAGE21_VAE_CHANNELS_LAST": "1",
+    "SGLANG_ENABLE_QWEN_IMAGE21_VAE_FP8_CONV": "1"
+  },
+  "request": {},
+  "dpcache_schedule": "data/benchmarks/qwen-image-2.1/rtx5090/configs/dpcache-fp8-sage2-kernels-dpcache/K12.json"
+}
