@@ -2,7 +2,7 @@
   "id": "cachedit-conservative",
   "engine": {
     "name": "sglang-diffusion",
-    "version": "2754e6ecf",
+    "version": "5ead00ae6",
     "url": "https://github.com/sgl-project/sglang/pull/40848"
   },
   "optimization": [
@@ -20,22 +20,26 @@
   ],
   "configPath": "data/benchmarks/qwen-image-2.1/rtx5090/configs/cachedit-conservative.json",
   "metrics": {
-    "latencyS": 7.682,
-    "peakVramGb": null,
+    "latencyS": 7.801,
+    "peakVramGb": 20.2,
     "lpips": {
-      "mean": 0.0159,
-      "max": 0.0425
+      "mean": 0.0166,
+      "max": 0.0374
     },
     "psnr": {
-      "mean": 38.1,
-      "min": 27.8
+      "mean": 36.6,
+      "min": 27.4
     },
-    "ssim": null,
-    "imageReward": null
+    "ssim": {
+      "mean": 0.9832
+    },
+    "imageReward": {
+      "mean": 0.996
+    }
   },
-  "status": "Submitted",
-  "measuredOn": "public",
-  "date": "2026-09-23",
-  "sourceUrl": "https://github.com/fractalyze/sglang/blob/experiment/qwen-image21-dpcache/benchmark/experiments/qwen_image21_dpcache/README.md",
+  "status": "Verified",
+  "measuredOn": "held-out",
+  "date": "2026-09-30",
+  "sourceUrl": null,
   "pr": null
 }

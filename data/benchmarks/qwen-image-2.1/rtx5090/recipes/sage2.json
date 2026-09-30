@@ -1,0 +1,41 @@
+{
+  "id": "sage2",
+  "engine": {
+    "name": "sglang-diffusion",
+    "version": "5ead00ae6",
+    "url": "https://github.com/fractalyze/sglang/tree/qi21/showcase"
+  },
+  "optimization": [
+    {
+      "technique": "Quantization",
+      "method": "SageAttention2"
+    }
+  ],
+  "configuration": [
+    "attention runs SageAttention2 (INT8 QK, FP8 PV) instead of torch SDPA"
+  ],
+  "configPath": "data/benchmarks/qwen-image-2.1/rtx5090/configs/sage2.json",
+  "metrics": {
+    "latencyS": 12.517,
+    "peakVramGb": 20.1,
+    "lpips": {
+      "mean": 0.0565,
+      "max": 0.2891
+    },
+    "psnr": {
+      "mean": 30.7,
+      "min": 16.1
+    },
+    "ssim": {
+      "mean": 0.9481
+    },
+    "imageReward": {
+      "mean": 1.058
+    }
+  },
+  "status": "Verified",
+  "measuredOn": "held-out",
+  "date": "2026-09-30",
+  "sourceUrl": null,
+  "pr": null
+}

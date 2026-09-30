@@ -6,28 +6,29 @@ video inference. Each benchmark is one model on one GPU; each row is a
 sparse attention, compilation, …) — measured against the un-optimized baseline
 under one fixed protocol.
 
-> **Status:** the site and data format are done; this repo's own measurement
-> harness is not. The numbers in `data/` are real: they are transcribed from the
+> **Status:** the numbers in `data/` were measured by this repo's harness
+> (`bench/`, see [bench/README.md](bench/README.md)) on one RTX 5090, on a private
+> held-out prompt set, so they are `Verified`. The five caching recipes are the
 > DPCache study behind [sgl-project/sglang#40848](https://github.com/sgl-project/sglang/pull/40848)
-> (one RTX 5090, frozen prompt corpus, `Submitted` status), with the source
-> report linked from every recipe. Re-measuring them with a harness in this repo
-> on a private held-out set is what turns them `Verified`.
+> re-measured here; the FP8 / SageAttention2 / fused-kernel recipes come from the
+> same engine branch.
 
 ## What is measured
 
 All recipes on a page are compared to the same **baseline**: the engine's
 native run under the page's protocol (for Qwen-Image 2.1 × RTX 5090: BF16,
-40 steps, guidance 1, `torch_sdpa`, DiT layerwise offload, eager). Model
+40 steps, guidance 1, `torch_sdpa`, DiT and VAE resident, text encoder
+layerwise offload, eager). Model
 weights are never changed; distilled or fine-tuned checkpoints are not recipes.
 
 | Metric        | Definition                                                                                                                                                                |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `latencyS`    | One image, prompt in → image out, one request at a time; how it was timed is written in `benchmark.json` `timing`                                                         |
-| `peakVramGb`  | Peak GPU memory during the run (`null` when the source did not record it)                                                                                                 |
+| `peakVramGb`  | Peak GPU memory the engine reports over the timed renders (`null` when the source did not record it)                                                                     |
 | `lpips`       | LPIPS(alex) vs. the baseline image for the same prompt and seed, mean and max over the prompt set. **Primary quality axis** — every chart and quality limit uses the mean |
 | `psnr`        | PSNR (dB) vs. the baseline image, mean and min                                                                                                                            |
-| `ssim`        | SSIM vs. the baseline image, mean (`null` until measured)                                                                                                                 |
-| `imageReward` | ImageReward of the recipe's own images, mean (`null` until measured)                                                                                                      |
+| `ssim`        | SSIM vs. the baseline image, mean                                                                                                                                         |
+| `imageReward` | ImageReward-v1.0 of the recipe's own images, mean (absolute; the baseline has one too)                                                                                  |
 
 The baseline is compared against itself, so its `lpips` / `psnr` / `ssim`
 are `null` and render as "—".
@@ -80,8 +81,9 @@ naming the file.
    metrics. Until then the file may carry `status: "Submitted"` with numbers
    from your own run on the same GPU.
 
-The harness that produces the metrics (`bench/`, Python) is the next piece of
-work and is not in the repo yet.
+The harness that produces the metrics is `bench/` (Python); one command
+re-measures a recipe end to end and rewrites its file. See
+[bench/README.md](bench/README.md).
 
 ## Running locally
 

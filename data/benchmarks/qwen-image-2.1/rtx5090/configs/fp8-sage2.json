@@ -1,0 +1,12 @@
+{
+  "schema": "sglang-runtime",
+  "note": null,
+  "server": {
+    "component_quantizations": {
+      "transformer": "fp8"
+    },
+    "attention_backend": "sage_attn"
+  },
+  "env": {},
+  "request": {}
+}

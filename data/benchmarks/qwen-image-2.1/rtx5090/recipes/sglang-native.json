@@ -2,7 +2,7 @@
   "id": "sglang-native",
   "engine": {
     "name": "sglang-diffusion",
-    "version": "2754e6ecf",
+    "version": "5ead00ae6",
     "url": "https://github.com/sgl-project/sglang/pull/40848"
   },
   "optimization": [],
@@ -15,16 +15,18 @@
   ],
   "configPath": null,
   "metrics": {
-    "latencyS": 13.464,
-    "peakVramGb": null,
+    "latencyS": 13.578,
+    "peakVramGb": 20.2,
     "lpips": null,
     "psnr": null,
     "ssim": null,
-    "imageReward": null
+    "imageReward": {
+      "mean": 1.018
+    }
   },
-  "status": "Submitted",
-  "measuredOn": "public",
-  "date": "2026-09-23",
-  "sourceUrl": "https://github.com/fractalyze/sglang/blob/experiment/qwen-image21-dpcache/benchmark/experiments/qwen_image21_dpcache/README.md",
+  "status": "Verified",
+  "measuredOn": "held-out",
+  "date": "2026-09-30",
+  "sourceUrl": null,
   "pr": null
 }

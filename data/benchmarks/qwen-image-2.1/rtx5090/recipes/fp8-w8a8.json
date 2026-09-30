@@ -1,0 +1,42 @@
+{
+  "id": "fp8-w8a8",
+  "engine": {
+    "name": "sglang-diffusion",
+    "version": "5ead00ae6",
+    "url": "https://github.com/fractalyze/sglang/tree/qi21/showcase"
+  },
+  "optimization": [
+    {
+      "technique": "Quantization",
+      "method": "FP8 W8A8 per-channel"
+    }
+  ],
+  "configuration": [
+    "DiT linears quantized to FP8 at load (per-channel weights, per-token activations)",
+    "SM120 block-scaled FP8 GEMM with the scale pass folded into its consumers"
+  ],
+  "configPath": "data/benchmarks/qwen-image-2.1/rtx5090/configs/fp8-w8a8.json",
+  "metrics": {
+    "latencyS": 6.778,
+    "peakVramGb": 13.9,
+    "lpips": {
+      "mean": 0.081,
+      "max": 0.3417
+    },
+    "psnr": {
+      "mean": 27.7,
+      "min": 14.0
+    },
+    "ssim": {
+      "mean": 0.9265
+    },
+    "imageReward": {
+      "mean": 0.997
+    }
+  },
+  "status": "Verified",
+  "measuredOn": "held-out",
+  "date": "2026-09-30",
+  "sourceUrl": null,
+  "pr": null
+}

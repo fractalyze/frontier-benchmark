@@ -1,0 +1,54 @@
+{
+  "id": "fp8-sage2-kernels",
+  "engine": {
+    "name": "sglang-diffusion",
+    "version": "5ead00ae6",
+    "url": "https://github.com/fractalyze/sglang/tree/qi21/showcase"
+  },
+  "optimization": [
+    {
+      "technique": "Quantization",
+      "method": "FP8 W8A8 per-channel"
+    },
+    {
+      "technique": "Quantization",
+      "method": "SageAttention2"
+    },
+    {
+      "technique": "Kernel Optimization",
+      "method": "fused text-encoder and VAE kernels"
+    }
+  ],
+  "configuration": [
+    "DiT linears quantized to FP8 at load (per-channel weights, per-token activations)",
+    "SM120 block-scaled FP8 GEMM with the scale pass folded into its consumers",
+    "attention runs SageAttention2 (INT8 QK, FP8 PV) instead of torch SDPA",
+    "SageAttention2 operands emitted directly by the fused Q/K/V kernels",
+    "Qwen3-VL text encoder: fused RMSNorm and CUDA-graph replay of the layer stack",
+    "VAE decoder: channels_last with FP8 cuDNN convolutions"
+  ],
+  "configPath": "data/benchmarks/qwen-image-2.1/rtx5090/configs/fp8-sage2-kernels.json",
+  "metrics": {
+    "latencyS": 5.679,
+    "peakVramGb": 12.8,
+    "lpips": {
+      "mean": 0.1035,
+      "max": 0.3763
+    },
+    "psnr": {
+      "mean": 26.1,
+      "min": 13.4
+    },
+    "ssim": {
+      "mean": 0.9077
+    },
+    "imageReward": {
+      "mean": 0.999
+    }
+  },
+  "status": "Verified",
+  "measuredOn": "held-out",
+  "date": "2026-09-30",
+  "sourceUrl": null,
+  "pr": null
+}
