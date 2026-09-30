@@ -38,17 +38,17 @@ describe("ModelCard", () => {
     expect(select).toHaveClass("z-10");
   });
 
-  it("renders speedup and recipe for each default limit", () => {
+  it("renders latency and recipe for each default limit", () => {
     render(<ModelCard model={model} benches={[bench]} renderLink={link} />);
     const expected = ladder(bench).map(({ limit, recipe }) => [
       `≤ ${fmtLimit(limit)}`,
-      `${speedup(bench, recipe!).toFixed(1)}×`,
+      `${recipe!.metrics.latencyS.toFixed(1)}s`,
       recipe!.name,
     ]);
     expect(rows()).toEqual(expected);
     // Not tautological: literal values from the demo data.
-    expect(rows()[0]).toEqual(["≤ .01", "2.0×", "DPCache"]);
-    expect(rows()[1]).toEqual(["≤ .05", "7.1×", "DPCache + FP8 + SpargeAttn + torch.compile"]);
+    expect(rows()[0]).toEqual(["≤ .01", "6.1s", "DPCache"]);
+    expect(rows()[1]).toEqual(["≤ .05", "1.7s", "DPCache + FP8 + SpargeAttn + torch.compile"]);
     expect(rows()[2]).toEqual([
       "≤ .10",
       "10.0×",
@@ -68,7 +68,7 @@ describe("ModelCard", () => {
     const select = screen.getByRole("combobox", { name: "Hardware" });
     select.append(new Option("H100", "h100"));
     fireEvent.change(select, { target: { value: "h100" } });
-    expect(rows()[0]).toEqual(["≤ .01", "1.0×", "Baseline"]);
+    expect(rows()[0]).toEqual(["≤ .01", "12.0s", "Baseline"]);
     expect(screen.getByText("Qwen-Image 2.1").closest("a")).toHaveAttribute(
       "href",
       "/qwen-image-2.1/h100",
