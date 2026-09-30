@@ -36,52 +36,54 @@ describe("ResultsTable", () => {
     expect(headers).toEqual(["Latency", "LPIPS", "Speedup", "Recipe", "Engine", "Verified"]);
   });
 
-  it("formats the dpcache-fp8 row", () => {
+  it("formats the dpcache-k20 row", () => {
     renderTable();
-    const cells = within(rowOf("DPCache + FP8"))
+    const cells = within(rowOf("DPCache K=20"))
       .getAllByRole("cell")
       .map((c) => c.textContent);
     expect(cells).toEqual([
-      "2.4s",
-      ".028",
-      "5.0×",
-      "DPCache + FP8",
-      "sglang-diffusion 0.5.0",
-      "experimental",
+      "6.8s",
+      ".008",
+      "2.0×",
+      "DPCache K=20",
+      "sglang-diffusion 2754e6ecf",
+      "submitted",
     ]);
   });
 
   it("shows full metrics and provenance in the open detail row", () => {
-    renderTable("dpcache-fp8");
-    expect(cellOf("PSNR")).toHaveTextContent("31.9 dB");
-    expect(cellOf("SSIM")).toHaveTextContent("0.912");
-    expect(cellOf("ImageReward")).toHaveTextContent("0.92");
-    expect(cellOf("Peak VRAM")).toHaveTextContent("15.7 GB");
-    expect(cellOf("Measured on")).toHaveTextContent("public set, 100 prompts, 2026-09-21");
+    renderTable("dpcache-k20");
+    expect(cellOf("PSNR")).toHaveTextContent("41.5 dB (min 28.2)");
+    // Not measured by the source study: rendered as a dash, never as 0 or NaN.
+    for (const label of ["SSIM", "ImageReward", "Peak VRAM"])
+      expect(cellOf(label)).toHaveTextContent(/^—$/);
+    expect(cellOf("Config").querySelector("a")).toHaveAttribute(
+      "href",
+      expect.stringContaining("configs/dpcache-K20.json"),
+    );
+    expect(cellOf("Source").querySelector("a")).toHaveAttribute(
+      "href",
+      expect.stringContaining("qwen_image21_dpcache/README.md"),
+    );
+    expect(cellOf("Measured on")).toHaveTextContent(
+      "comparator-v1 (20 prompt/seed pairs), 2026-09-23",
+    );
   });
 
   it("renders em dashes for the baseline's null metrics and provenance", () => {
-    renderTable("sglang-default");
+    renderTable("sglang-native");
     const cells = within(rowOf("Baseline")).getAllByRole("cell");
     expect(cells[1]).toHaveTextContent(/^—$/);
-    for (const label of [
-      "LPIPS mean",
-      "LPIPS p95",
-      "PSNR",
-      "SSIM",
-      "Config",
-      "Commit",
-      "Submission",
-    ])
+    for (const label of ["LPIPS mean", "LPIPS max", "PSNR", "SSIM", "Config", "Submission"])
       expect(cellOf(label)).toHaveTextContent(/^—$/);
-    for (const label of ["Config", "Commit", "Submission"])
+    for (const label of ["Config", "Submission"])
       expect(cellOf(label).querySelector("a")).toBeNull();
     expect(screen.getByText("none (reference)")).toBeInTheDocument();
   });
 
   it("calls onSelect with the recipe id on row click", () => {
     const onSelect = renderTable();
-    fireEvent.click(rowOf("DPCache + FP8"));
-    expect(onSelect).toHaveBeenCalledWith("dpcache-fp8");
+    fireEvent.click(rowOf("DPCache K=20"));
+    expect(onSelect).toHaveBeenCalledWith("dpcache-k20");
   });
 });

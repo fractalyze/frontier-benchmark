@@ -6,48 +6,55 @@ video inference. Each benchmark is one model on one GPU; each row is a
 sparse attention, compilation, …) — measured against the un-optimized baseline
 under one fixed protocol.
 
-> **Status:** the site and data format are done; the measurement harness is
-> not. Every number currently in `data/` is a placeholder (all recipes carry
-> `status: "Experimental"`), and the site says so wherever those numbers appear.
+> **Status:** the site and data format are done; this repo's own measurement
+> harness is not. The numbers in `data/` are real: they are transcribed from the
+> DPCache study behind [sgl-project/sglang#40848](https://github.com/sgl-project/sglang/pull/40848)
+> (one RTX 5090, frozen prompt corpus, `Submitted` status), with the source
+> report linked from every recipe. Re-measuring them with a harness in this repo
+> on a private held-out set is what turns them `Verified`.
 
 ## What is measured
 
 All recipes on a page are compared to the same **baseline**: the engine's
-default run — BF16, 50 steps, no cache, no quantization. Model weights are
-never changed; distilled or fine-tuned checkpoints are not recipes.
+native run under the page's protocol (for Qwen-Image 2.1 × RTX 5090: BF16,
+40 steps, guidance 1, `torch_sdpa`, DiT layerwise offload, eager). Model
+weights are never changed; distilled or fine-tuned checkpoints are not recipes.
 
-| Metric         | Definition                                                                                                                                 |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `latencyS`     | One image, prompt in → image out, one request at a time, median over the prompt set after 3 warmup runs                                    |
-| `peakVramGb`   | Peak GPU memory during the run                                                                                                             |
-| `lpips`        | LPIPS vs. the baseline image for the same prompt and seed (mean and p95). **Primary quality axis** — every chart and quality limit uses it |
-| `psnr`, `ssim` | PSNR (dB) and SSIM vs. the baseline image, mean                                                                                            |
-| `imageReward`  | ImageReward score of the recipe's own images, mean (absolute, not vs. baseline)                                                            |
+| Metric        | Definition                                                                                                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `latencyS`    | One image, prompt in → image out, one request at a time; how it was timed is written in `benchmark.json` `timing`                                                         |
+| `peakVramGb`  | Peak GPU memory during the run (`null` when the source did not record it)                                                                                                 |
+| `lpips`       | LPIPS(alex) vs. the baseline image for the same prompt and seed, mean and max over the prompt set. **Primary quality axis** — every chart and quality limit uses the mean |
+| `psnr`        | PSNR (dB) vs. the baseline image, mean and min                                                                                                                            |
+| `ssim`        | SSIM vs. the baseline image, mean (`null` until measured)                                                                                                                 |
+| `imageReward` | ImageReward of the recipe's own images, mean (`null` until measured)                                                                                                      |
 
 The baseline is compared against itself, so its `lpips` / `psnr` / `ssim`
 are `null` and render as "—".
 
-Two prompt sets exist per benchmark. The **public** set will be checked into
-the repo at the path `benchmark.json` declares (it lands with the harness),
-and results measured on it are `Submitted`. A private **held-out** set is run
-only by the maintainers; results re-measured on it are `Verified`, and the
-published numbers are the held-out ones. This is what keeps a recipe from
-being tuned to the prompts it is scored on.
+Two prompt sets exist per benchmark. The **public** set is checked into the
+repo at the path `benchmark.json` declares (`data/prompts/`, prompt + seed
+pairs), and results measured on it are `Submitted`. A private **held-out** set
+(`null` until one exists) is run only by the maintainers; results re-measured
+on it are `Verified`. This is what keeps a recipe from being tuned to the
+prompts it is scored on.
 
 ## Data layout
 
 ```
 data/benchmarks/<model>/<hardware>/
 ├── benchmark.json          # protocol shared by every recipe on the page
-└── recipes/<id>.json       # one file per recipe; id == filename
+├── recipes/<id>.json       # one file per recipe; id == filename
+└── configs/*               # the reproducible config each recipe points at
+data/prompts/<set>.json     # the public prompt/seed pairs a page was scored on
 ```
 
 `benchmark.json` holds the protocol (resolution, batch, steps, precision,
-version), both prompt sets, the warmup count, and the
-id of the baseline recipe. A recipe file holds the engine (name + version),
-the optimization list as `{ technique, method }` pairs, short configuration
-notes, the metrics above, the status, which prompt set it was measured on,
-the date, and provenance (`configPath`, `commit`, `pr`).
+guidance, attention backend, offload, version), both prompt sets, how latency
+was timed, and the id of the baseline recipe. A recipe file holds the engine
+(name, version, link), the optimization list as `{ technique, method }` pairs,
+short configuration notes, the metrics above, the status, which prompt set it
+was measured on, the date, and provenance (`configPath`, `sourceUrl`, `pr`).
 
 Techniques are a closed list: Step Reduction, Feature Caching, Sparse
 Attention, Token Pruning, Quantization, Kernel Optimization, Compilation,

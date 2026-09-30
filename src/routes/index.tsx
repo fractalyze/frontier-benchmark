@@ -27,8 +27,8 @@ export const Route = createFileRoute("/")({
 });
 
 const METHOD = [
-  "Baseline: the engine's default BF16, 50-step run. Every recipe is compared to its images.",
-  "Quality: LPIPS (the chart axis), PSNR, SSIM vs. baseline, plus ImageReward, over 100 fixed prompts.",
+  "Baseline: the engine's native BF16 run at the page's step count. Every recipe is compared to its images.",
+  "Quality: LPIPS (the chart axis) and PSNR against the baseline image for the same prompt and seed, over a fixed prompt set.",
   "Speed: seconds per image for a single request, median after warmup.",
   "Verified: re-measured by the maintainers on a private held-out prompt set.",
 ];

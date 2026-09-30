@@ -15,11 +15,15 @@ const walk = (dir: string): string[] =>
     .readdirSync(dir, { withFileTypes: true })
     .flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]));
 
+// Only the two file shapes the loader owns; configs/ holds recipe configs, not data.
+const isDataFile = (f: string) => /(^|\/)(benchmark\.json|recipes\/[^/]+\.json)$/.test(f);
 const files: Record<string, Json> = Object.fromEntries(
-  walk(ROOT).map((f) => [
-    "/" + path.relative(path.dirname(ROOT), f).split(path.sep).join("/"),
-    JSON.parse(fs.readFileSync(f, "utf8")) as Json,
-  ]),
+  walk(ROOT)
+    .filter(isDataFile)
+    .map((f) => [
+      "/" + path.relative(path.dirname(ROOT), f).split(path.sep).join("/"),
+      JSON.parse(fs.readFileSync(f, "utf8")) as Json,
+    ]),
 );
 const names = Object.keys(files);
 
@@ -30,7 +34,7 @@ const metricsOf = (r: Json) => r["metrics"] as Json;
 describe("every file under data/benchmarks validates", () => {
   it("finds the demo benchmark and its recipes", () => {
     expect(names).toContain(`${DEMO}/benchmark.json`);
-    expect(names.filter((f) => f.startsWith(`${DEMO}/recipes/`))).toHaveLength(10);
+    expect(names.filter((f) => f.startsWith(`${DEMO}/recipes/`))).toHaveLength(5);
   });
 
   it.each(names.filter((f) => f.endsWith("/benchmark.json")))("%s", (f) => {
@@ -43,13 +47,13 @@ describe("every file under data/benchmarks validates", () => {
 
   it("passes the loader's cross-file rules", () => {
     const [bench] = buildBenchmarks(files);
-    expect(bench?.baseline.id).toBe("sglang-default");
-    expect(bench?.recipes).toHaveLength(10);
+    expect(bench?.baseline.id).toBe("sglang-native");
+    expect(bench?.recipes).toHaveLength(5);
   });
 });
 
 describe("schema rejects", () => {
-  const recipe = () => structuredClone(recipeIn(files, "dpcache-fp8"));
+  const recipe = () => structuredClone(recipeIn(files, "dpcache-k20"));
 
   it("negative latency", () => {
     const r = recipe();
@@ -81,26 +85,28 @@ describe("schema rejects", () => {
 describe("loader rejects", () => {
   it("non-baseline with null lpips", () => {
     const f = clone();
-    metricsOf(recipeIn(f, "dpcache-fp8"))["lpips"] = null;
-    expect(() => buildBenchmarks(f)).toThrow(/dpcache-fp8\.json: non-baseline/);
+    metricsOf(recipeIn(f, "dpcache-k20"))["lpips"] = null;
+    expect(() => buildBenchmarks(f)).toThrow(/dpcache-k20\.json: non-baseline/);
   });
 
   it("baseline with non-empty optimization", () => {
     const f = clone();
-    recipeIn(f, "sglang-default")["optimization"] = [{ technique: "Compilation", method: "x" }];
-    expect(() => buildBenchmarks(f)).toThrow(/sglang-default\.json: baseline/);
+    recipeIn(f, "sglang-native")["optimization"] = [{ technique: "Compilation", method: "x" }];
+    expect(() => buildBenchmarks(f)).toThrow(/sglang-native\.json: baseline/);
   });
 
   it("duplicate ids", () => {
     const f = clone();
-    f[`${DEMO}/recipes/fp9.json`] = structuredClone(recipeIn(f, "fp8"));
-    expect(() => buildBenchmarks(f)).toThrow(/fp9\.json: duplicate recipe id "fp8"/);
+    f[`${DEMO}/recipes/fp9.json`] = structuredClone(recipeIn(f, "dpcache-k12"));
+    expect(() => buildBenchmarks(f)).toThrow(/fp9\.json: duplicate recipe id "dpcache-k12"/);
   });
 
   it("id/filename mismatch", () => {
     const f = clone();
-    recipeIn(f, "fp8")["id"] = "fp16";
-    expect(() => buildBenchmarks(f)).toThrow(/fp8\.json: id "fp16" does not match filename/);
+    recipeIn(f, "dpcache-k12")["id"] = "fp16";
+    expect(() => buildBenchmarks(f)).toThrow(
+      /dpcache-k12\.json: id "fp16" does not match filename/,
+    );
   });
 
   it("unknown model slug", () => {
@@ -142,17 +148,35 @@ describe("loader rejects", () => {
 
   it("names every missing non-baseline field", () => {
     const f = clone();
-    const r = recipeIn(f, "fp8");
+    const r = recipeIn(f, "dpcache-k12");
+    r["optimization"] = [];
+    metricsOf(r)["lpips"] = null;
+    expect(() => buildBenchmarks(f)).toThrow(
+      /dpcache-k12\.json: non-baseline recipe is missing optimization, lpips/,
+    );
+  });
+
+  it("accepts a non-baseline recipe with unmeasured psnr/ssim/imageReward/vram", () => {
+    const f = clone();
+    const r = recipeIn(f, "dpcache-k12");
     metricsOf(r)["psnr"] = null;
     metricsOf(r)["ssim"] = null;
-    expect(() => buildBenchmarks(f)).toThrow(
-      /fp8\.json: non-baseline recipe is missing psnr, ssim/,
-    );
+    metricsOf(r)["imageReward"] = null;
+    metricsOf(r)["peakVramGb"] = null;
+    expect(buildBenchmarks(f)[0]?.recipes.find((x) => x.id === "dpcache-k12")).toBeDefined();
+  });
+
+  it("links every configPath to a file that exists", () => {
+    for (const f of names.filter((n) => n.includes("/recipes/"))) {
+      const p = files[f]!["configPath"];
+      if (typeof p === "string")
+        expect(fs.existsSync(path.resolve(ROOT, "../..", p)), `${f} -> ${p}`).toBe(true);
+    }
   });
 });
 
 describe("schema rejects paths that fileUrl() cannot link", () => {
-  const recipe = () => structuredClone(recipeIn(files, "dpcache-fp8"));
+  const recipe = () => structuredClone(recipeIn(files, "dpcache-k20"));
   it.each(["/abs/config.yaml", "../escape.yaml", "a/../b.yaml", "has space.yaml", "configs/"])(
     "%s",
     (p) => {
@@ -161,9 +185,9 @@ describe("schema rejects paths that fileUrl() cannot link", () => {
       expect(RecipeFileSchema.safeParse(r).success).toBe(false);
     },
   );
-  it("accepts recipes/dpcache-fp8.yaml", () => {
+  it("accepts a repo-relative config path", () => {
     const r = recipe();
-    r["configPath"] = "data/benchmarks/qwen-image-2.1/rtx5090/recipes/dpcache-fp8.yaml";
+    r["configPath"] = "data/benchmarks/qwen-image-2.1/rtx5090/configs/dpcache-K20.json";
     expect(RecipeFileSchema.safeParse(r).success).toBe(true);
   });
 });

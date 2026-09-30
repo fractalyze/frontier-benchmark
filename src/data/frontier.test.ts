@@ -21,26 +21,26 @@ describe("BENCHMARKS (loaded from data/benchmarks via import.meta.glob)", () => 
     expect(findBenchmark("qwen-image-2.1", "rtx5090")).toBe(bench);
     expect(bench.model).toBe("qwen-image-2.1");
     expect(bench.hardware).toBe("rtx5090");
-    expect(recipes).toHaveLength(10);
+    expect(recipes).toHaveLength(5);
   });
 
   it("derives baseline and updated", () => {
-    expect(bench.baseline.id).toBe("sglang-default");
-    expect(bench.baseline.metrics.latencyS).toBe(12);
-    expect(bench.updated).toBe("2026-09-21");
+    expect(bench.baseline.id).toBe("sglang-native");
+    expect(bench.baseline.metrics.latencyS).toBe(13.464);
+    expect(bench.updated).toBe("2026-09-23");
   });
 
   it("derives names from methods", () => {
-    expect(byId("sglang-default").name).toBe("Baseline");
-    expect(byId("dpcache-fp8").name).toBe("DPCache + FP8");
-    expect(byId("dpcache-fp8-sparge").name).toBe("DPCache + FP8 + SpargeAttn");
+    expect(byId("sglang-native").name).toBe("Baseline");
+    expect(byId("dpcache-k20").name).toBe("DPCache K=20");
+    expect(byId("cachedit-stock").name).toBe("Cache-DiT stock");
   });
 });
 
 describe("lpipsOf", () => {
   it("treats the baseline's null lpips as zero loss", () => {
     expect(lpipsOf(bench.baseline)).toBe(0);
-    expect(lpipsOf(byId("dpcache-fp8"))).toBe(0.028);
+    expect(lpipsOf(byId("dpcache-k20"))).toBe(0.0076);
   });
 });
 
@@ -57,7 +57,7 @@ describe("paretoFrontier", () => {
   });
 
   it("includes the baseline as the last point", () => {
-    expect(paretoFrontier(recipes).at(-1)?.id).toBe("sglang-default");
+    expect(paretoFrontier(recipes).at(-1)?.id).toBe("sglang-native");
   });
 
   it("does not mutate its input", () => {
@@ -69,13 +69,13 @@ describe("paretoFrontier", () => {
 
 describe("fastestUnder", () => {
   it("picks the lowest-latency recipe within the lpips limit", () => {
-    expect(fastestUnder(recipes, 0.03)?.id).toBe("dpcache-fp8");
-    expect(fastestUnder(recipes, 0.01)?.id).toBe("dpcache");
-    expect(fastestUnder(recipes, 1)?.id).toBe("steps20-dpcache-fp8-compile");
+    expect(fastestUnder(recipes, 0.03)?.id).toBe("dpcache-k20");
+    expect(fastestUnder(recipes, 0.01)?.id).toBe("dpcache-k20");
+    expect(fastestUnder(recipes, 1)?.id).toBe("dpcache-k12");
   });
 
   it("falls back to the baseline at limit 0 and null when nothing qualifies", () => {
-    expect(fastestUnder(recipes, 0)?.id).toBe("sglang-default");
+    expect(fastestUnder(recipes, 0)?.id).toBe("sglang-native");
     expect(fastestUnder(recipes, -1)).toBeNull();
     expect(fastestUnder([], 1)).toBeNull();
   });
@@ -84,23 +84,23 @@ describe("fastestUnder", () => {
 describe("speedup", () => {
   it("is baseline latency over recipe latency", () => {
     expect(speedup(bench, bench.baseline)).toBe(1);
-    expect(speedup(bench, byId("dpcache-fp8"))).toBeCloseTo(5);
+    expect(speedup(bench, byId("dpcache-k20"))).toBeCloseTo(1.966, 2);
   });
 });
 
 describe("ladder", () => {
   it("defaults to the 0.01 / 0.05 / 0.1 limits", () => {
     expect(ladder(bench).map((s) => [s.limit, s.recipe?.id])).toEqual([
-      [0.01, "dpcache"],
-      [0.05, "dpcache-fp8-sparge-compile"],
-      [0.1, "steps20-dpcache-fp8-compile"],
+      [0.01, "dpcache-k20"],
+      [0.05, "dpcache-k20"],
+      [0.1, "dpcache-k12"],
     ]);
   });
 
   it("reports null for a limit nobody meets", () => {
     expect(ladder(bench, [-1, 0.03])).toEqual([
       { limit: -1, recipe: null },
-      { limit: 0.03, recipe: byId("dpcache-fp8") },
+      { limit: 0.03, recipe: byId("dpcache-k20") },
     ]);
   });
 });

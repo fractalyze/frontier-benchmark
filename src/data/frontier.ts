@@ -117,7 +117,7 @@ export function buildBenchmarks(files: Record<string, unknown>): Benchmark[] {
       if (isBaseline && (r.optimization.length || lpips || psnr || ssim))
         throw err(file, "baseline must have optimization = [] and lpips/psnr/ssim = null");
       if (!isBaseline) {
-        const missing = Object.entries({ optimization: r.optimization.length, lpips, psnr, ssim })
+        const missing = Object.entries({ optimization: r.optimization.length, lpips })
           .filter(([, v]) => !v)
           .map(([k]) => k);
         if (missing.length) throw err(file, `non-baseline recipe is missing ${missing.join(", ")}`);
@@ -137,7 +137,10 @@ export function buildBenchmarks(files: Record<string, unknown>): Benchmark[] {
 
 /** Only combinations that actually have data on disk. */
 export const BENCHMARKS: Benchmark[] = buildBenchmarks(
-  import.meta.glob("/data/benchmarks/**/*.json", { eager: true, import: "default" }),
+  import.meta.glob(["/data/benchmarks/*/*/benchmark.json", "/data/benchmarks/*/*/recipes/*.json"], {
+    eager: true,
+    import: "default",
+  }),
 );
 
 export const findBenchmark = (model: string, hardware: string) =>

@@ -1,0 +1,13 @@
+{
+  "schema": "sglang-cache-dit-params",
+  "source": "selection-comparator-v1.json in https://github.com/fractalyze/sglang/blob/experiment/qwen-image21-dpcache/benchmark/experiments/qwen_image21_dpcache",
+  "cache_dit_params": {
+    "Bn_compute_blocks": 1,
+    "Fn_compute_blocks": 1,
+    "enable_dmd": false,
+    "enable_taylorseer": false,
+    "max_continuous_cached_steps": 1,
+    "max_warmup_steps": 10,
+    "residual_diff_threshold": 0.12
+  }
+}

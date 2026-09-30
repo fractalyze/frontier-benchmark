@@ -45,16 +45,20 @@ export const BenchmarkFileSchema = z
         batch: posInt,
         steps: posInt,
         precision: text,
+        guidance: nonneg,
+        attention: text,
+        offload: text,
       })
       .strict(),
     promptSets: z
       .object({
         // Keys match the MEASURED_ON values so a recipe's measuredOn indexes this object directly.
         public: z.object({ name: text, count: posInt, path: repoPath }).strict(),
-        "held-out": z.object({ name: text, count: posInt }).strict(),
+        "held-out": z.object({ name: text, count: posInt }).strict().nullable(),
       })
       .strict(),
-    warmupRuns: z.number().int().nonnegative(),
+    /** How latency was taken, in words; the harness fills it in. */
+    timing: text,
     baselineRecipe: slug,
   })
   .strict();
@@ -62,30 +66,28 @@ export const BenchmarkFileSchema = z
 export const RecipeFileSchema = z
   .object({
     id: slug,
-    engine: z.object({ name: text, version: text }).strict(),
+    engine: z.object({ name: text, version: text, url: z.string().url().nullable() }).strict(),
     optimization: z.array(z.object({ technique: z.enum(TECHNIQUES), method: text }).strict()),
     configuration: z.array(text),
     configPath: repoPath.nullable(),
     metrics: z
       .object({
         latencyS: pos,
-        peakVramGb: pos,
-        lpips: z.object({ mean: nonneg, p95: nonneg }).strict().nullable(),
-        psnr: z.object({ mean: pos }).strict().nullable(),
+        peakVramGb: pos.nullable(),
+        lpips: z.object({ mean: nonneg, max: nonneg }).strict().nullable(),
+        psnr: z.object({ mean: pos, min: pos }).strict().nullable(),
         ssim: z
           .object({ mean: z.number().min(0).max(1) })
           .strict()
           .nullable(),
-        imageReward: z.object({ mean: z.number() }).strict(),
+        imageReward: z.object({ mean: z.number() }).strict().nullable(),
       })
       .strict(),
     status: z.enum(STATUSES),
     measuredOn: z.enum(MEASURED_ON),
     date: isoDate,
-    commit: z
-      .string()
-      .regex(/^[0-9a-f]{7,40}$/, "expected a hex sha")
-      .nullable(),
+    /** Where the numbers were reported (a PR, a report); null until measured by this repo's harness. */
+    sourceUrl: z.string().url().nullable(),
     pr: posInt.nullable(),
   })
   .strict();

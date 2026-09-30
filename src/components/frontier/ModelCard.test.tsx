@@ -32,7 +32,7 @@ describe("ModelCard", () => {
     const title = screen.getByText("Qwen-Image 2.1");
     expect(title.closest("a")).toHaveAttribute("href", "/qwen-image-2.1/rtx5090");
     expect(title).toHaveClass("after:absolute", "after:inset-0");
-    expect(screen.getByText("baseline 12.0s")).toBeInTheDocument();
+    expect(screen.getByText("baseline 13.5s")).toBeInTheDocument();
     const select = screen.getByRole("combobox", { name: "Hardware" });
     expect(select).toHaveTextContent("RTX 5090");
     expect(select).toHaveClass("z-10");
@@ -48,19 +48,9 @@ describe("ModelCard", () => {
     ]);
     expect(rows()).toEqual(expected);
     // Not tautological: literal values from the demo data.
-    expect(rows()[0]).toEqual(["≤ .01", "6.1s", "2.0×", "DPCache"]);
-    expect(rows()[1]).toEqual([
-      "≤ .05",
-      "1.7s",
-      "7.1×",
-      "DPCache + FP8 + SpargeAttn + torch.compile",
-    ]);
-    expect(rows()[2]).toEqual([
-      "≤ .10",
-      "1.2s",
-      "10.0×",
-      "20-step schedule + DPCache + FP8 + torch.compile",
-    ]);
+    expect(rows()[0]).toEqual(["≤ .01", "6.8s", "2.0×", "DPCache K=20"]);
+    expect(rows()[1]).toEqual(["≤ .05", "6.8s", "2.0×", "DPCache K=20"]);
+    expect(rows()[2]).toEqual(["≤ .10", "4.2s", "3.2×", "DPCache K=12"]);
   });
 
   it("switches the ladder and links when another hardware is selected", () => {
@@ -73,7 +63,7 @@ describe("ModelCard", () => {
     render(<ModelCard model={model} benches={[bench, other]} renderLink={link} />);
     fireEvent.keyDown(screen.getByRole("combobox", { name: "Hardware" }), { key: "ArrowDown" });
     fireEvent.click(screen.getByRole("option", { name: "H100" }));
-    expect(rows()[0]).toEqual(["≤ .01", "12.0s", "1.0×", "Baseline"]);
+    expect(rows()[0]).toEqual(["≤ .01", "13.5s", "1.0×", "Baseline"]);
     expect(screen.getByText("Qwen-Image 2.1").closest("a")).toHaveAttribute(
       "href",
       "/qwen-image-2.1/h100",

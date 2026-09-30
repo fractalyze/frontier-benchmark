@@ -1,13 +1,17 @@
 import { Fragment, useEffect, useRef } from "react";
 import { fmtLpips, lpipsOf, speedup, type Benchmark, type Recipe } from "@/data/frontier";
-import { commitUrl, fileUrl, prUrl } from "@/data/site";
+import { fileUrl, prUrl } from "@/data/site";
 import { cn } from "@/lib/utils";
 
 const DASH = "—";
 
 /** e.g. "held-out set, 100 prompts, 2026-09-21". */
-const measuredOnText = (bench: Benchmark, r: Recipe) =>
-  `${r.measuredOn} set, ${bench.promptSets[r.measuredOn].count} prompts, ${r.date}`;
+const measuredOnText = (bench: Benchmark, r: Recipe) => {
+  const set = bench.promptSets[r.measuredOn];
+  return set
+    ? `${set.name} (${set.count} prompt/seed pairs), ${r.date}`
+    : `${r.measuredOn}, ${r.date}`;
+};
 
 const basename = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
@@ -56,11 +60,16 @@ function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
         rows={[
           ["Latency", <Num>{m.latencyS.toFixed(1)}s</Num>],
           ["LPIPS mean", <Num>{fmtLpips(m.lpips?.mean)}</Num>],
-          ["LPIPS p95", <Num>{fmtLpips(m.lpips?.p95)}</Num>],
-          ["PSNR", <Num>{m.psnr ? `${m.psnr.mean.toFixed(1)} dB` : DASH}</Num>],
+          ["LPIPS max", <Num>{fmtLpips(m.lpips?.max)}</Num>],
+          [
+            "PSNR",
+            <Num>
+              {m.psnr ? `${m.psnr.mean.toFixed(1)} dB (min ${m.psnr.min.toFixed(1)})` : DASH}
+            </Num>,
+          ],
           ["SSIM", <Num>{m.ssim ? m.ssim.mean.toFixed(3) : DASH}</Num>],
-          ["ImageReward", <Num>{m.imageReward.mean.toFixed(2)}</Num>],
-          ["Peak VRAM", <Num>{m.peakVramGb.toFixed(1)} GB</Num>],
+          ["ImageReward", <Num>{m.imageReward ? m.imageReward.mean.toFixed(2) : DASH}</Num>],
+          ["Peak VRAM", <Num>{m.peakVramGb ? `${m.peakVramGb.toFixed(1)} GB` : DASH}</Num>],
         ]}
       />
       <Group
@@ -71,9 +80,14 @@ function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
             r.configPath ? <Ext href={fileUrl(r.configPath)}>{basename(r.configPath)}</Ext> : DASH,
           ],
           [
-            "Commit",
-            r.commit ? <Ext href={commitUrl(r.commit)}>{r.commit.slice(0, 7)}</Ext> : DASH,
+            "Engine",
+            r.engine.url ? (
+              <Ext href={r.engine.url}>{`${r.engine.name} ${r.engine.version}`}</Ext>
+            ) : (
+              <Num>{`${r.engine.name} ${r.engine.version}`}</Num>
+            ),
           ],
+          ["Source", r.sourceUrl ? <Ext href={r.sourceUrl}>report</Ext> : DASH],
           ["Submission", r.pr ? <Ext href={prUrl(r.pr)}>PR #{r.pr}</Ext> : DASH],
           [
             "Status",
