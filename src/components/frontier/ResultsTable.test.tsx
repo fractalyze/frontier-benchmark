@@ -41,7 +41,8 @@ const rowOf = (name: string) =>
     .getByText(name)
     .closest("tr")!;
 /** The <dd> paired with a <dt> label in the open detail dialog. */
-const cellOf = (label: string) => screen.getByText(label).nextElementSibling as HTMLElement;
+const cellOf = (label: string) =>
+  within(screen.getByRole("dialog")).getByText(label).nextElementSibling as HTMLElement;
 
 describe("ResultsTable", () => {
   it("renders the 6 column headers in order", () => {
@@ -67,17 +68,15 @@ describe("ResultsTable", () => {
     ]);
   });
 
-  it("hides recipes above the quality limit and says how many", () => {
+  it("shows every recipe and marks the ones above the quality limit", () => {
     const limit = 0.05;
     renderTable({ limit });
-    const within_ = bench.recipes.filter((r) => lpipsOf(r) <= limit);
-    expect(screen.getAllByRole("row")).toHaveLength(within_.length + 1); // + header
-    const hidden = bench.recipes.length - within_.length;
-    expect(hidden).toBeGreaterThan(0);
-    expect(
-      screen.getByText(new RegExp(`^${hidden} recipes? above LPIPS .050 hidden`)),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("DPCache K=12")).toBeNull();
+    const rows = screen.getAllByRole("row").slice(1); // skip the header
+    expect(rows).toHaveLength(bench.recipes.length);
+    const within = rows.filter((r) => r.getAttribute("data-within-limit") === "true");
+    expect(within).toHaveLength(bench.recipes.filter((r) => lpipsOf(r) <= limit).length);
+    expect(rowOf("DPCache K=12")).toHaveAttribute("data-within-limit", "false");
+    expect(rowOf("DPCache K=20")).toHaveAttribute("data-within-limit", "true");
   });
 
   it("shows full metrics, configuration and provenance in the detail dialog", () => {
@@ -85,9 +84,14 @@ describe("ResultsTable", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("heading")).toHaveTextContent("DPCache K=20");
     const m = k20.metrics;
-    expect(cellOf("PSNR")).toHaveTextContent(
-      `${m.psnr!.mean.toFixed(1)} dB (min ${m.psnr!.min.toFixed(1)})`,
+    expect(cellOf("Latency")).toHaveTextContent(`${m.latencyS.toFixed(1)}s`);
+    expect(cellOf("LPIPS mean")).toHaveTextContent(
+      `.${Math.round(m.lpips!.mean * 1000)
+        .toString()
+        .padStart(3, "0")}`,
     );
+    expect(cellOf("PSNR")).toHaveTextContent(`${m.psnr!.mean.toFixed(1)} dB`);
+    expect(cellOf("PSNR min")).toHaveTextContent(`${m.psnr!.min.toFixed(1)} dB`);
     expect(cellOf("SSIM")).toHaveTextContent(m.ssim!.mean.toFixed(3));
     expect(cellOf("ImageReward")).toHaveTextContent(m.imageReward!.mean.toFixed(2));
     expect(cellOf("Peak VRAM")).toHaveTextContent(`${m.peakVramGb!.toFixed(1)} GB`);
@@ -95,7 +99,7 @@ describe("ResultsTable", () => {
       "href",
       expect.stringContaining("configs/dpcache-K20.json"),
     );
-    expect(cellOf("Status")).toHaveTextContent(/^Verified$/);
+    expect(within(dialog).getByText("Verified")).toBeInTheDocument();
     expect(cellOf("Measured on")).toHaveTextContent(
       `heldout-v1 (20 prompt/seed pairs), ${k20.date}`,
     );
@@ -119,7 +123,7 @@ describe("ResultsTable", () => {
       expect(cellOf(label)).toHaveTextContent(/^—$/);
     for (const label of ["Config", "Submission"])
       expect(cellOf(label).querySelector("a")).toBeNull();
-    expect(screen.getByText("none (reference)")).toBeInTheDocument();
+    expect(screen.getByText("none")).toBeInTheDocument();
   });
 
   it("renders no dialog when nothing is open", () => {

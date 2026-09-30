@@ -108,27 +108,30 @@ function BenchmarkPage() {
 
         <div className="mt-3 border-t border-border pt-4">
           <p className="text-[12px] text-muted-foreground">
-            Drag the dashed line (or focus it and use the arrow keys) to set the quality limit; the
-            fastest recipe within it is selected and the table shows only recipes within it.
+            Drag the dashed line (or focus it and use the arrow keys) to set the quality limit. The
+            fastest recipe within it is selected; recipes above it are greyed out.
           </p>
-          <p className="mt-3 text-[14px]">
-            {selected ? (
-              <>
-                <span className="font-medium">{selected.name}</span>
-                <span className="num ml-3 text-muted-foreground">
-                  {[
-                    `${selected.metrics.latencyS.toFixed(1)}s`,
-                    `${speedup(bench, selected).toFixed(1)}× faster`,
-                    `LPIPS ${fmtLpips(lpipsOf(selected))}`,
-                  ].join(" · ")}
+          {selected ? (
+            <div className="mt-3 border-l-2 border-primary bg-surface-alt py-3 pr-4 pl-4">
+              <div className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+                Fastest within LPIPS ≤ {fmtLpips(limit)}
+              </div>
+              <div className="mt-1 flex flex-wrap items-baseline gap-x-5 gap-y-1">
+                <span className="text-[20px] font-semibold tracking-tight">{selected.name}</span>
+                <span className="num text-[16px]">
+                  {selected.metrics.latencyS.toFixed(1)}s
+                  <span className="text-muted-foreground"> · </span>
+                  {speedup(bench, selected).toFixed(1)}× faster
+                  <span className="text-muted-foreground"> · </span>
+                  LPIPS {fmtLpips(lpipsOf(selected))}
                 </span>
-              </>
-            ) : (
-              <span className="text-muted-foreground">
-                No measured recipe meets LPIPS ≤ {fmtLpips(limit)}.
-              </span>
-            )}
-          </p>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-3 text-[14px] text-muted-foreground">
+              No measured recipe meets LPIPS ≤ {fmtLpips(limit)}.
+            </p>
+          )}
         </div>
       </section>
 

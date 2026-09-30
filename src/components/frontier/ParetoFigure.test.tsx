@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import { findBenchmark } from "@/data/frontier";
-import { LIMIT_STEP, ParetoFigure } from "./ParetoFigure";
+import { LIMIT_STEP, ParetoFigure, xDomain } from "./ParetoFigure";
 
 afterEach(cleanup);
 
@@ -39,10 +39,15 @@ describe("ParetoFigure quality limit", () => {
     expect(onLimitChange).toHaveBeenLastCalledWith(+(0.05 - 4 * LIMIT_STEP).toFixed(3));
   });
 
-  it("never nudges below the smallest step", () => {
-    const { slider, onLimitChange } = renderFigure(LIMIT_STEP);
+  it("never nudges below .001", () => {
+    const { slider, onLimitChange } = renderFigure(0.002);
     fireEvent.keyDown(slider, { key: "ArrowDown" });
-    expect(onLimitChange).toHaveBeenLastCalledWith(LIMIT_STEP);
+    expect(onLimitChange).toHaveBeenLastCalledWith(0.001);
+  });
+
+  it("starts the latency axis below the fastest recipe, on a tick, never at zero for real data", () => {
+    expect(xDomain([4.5, 7, 13.6])).toEqual([2, 13.6 + (13.6 - 2) * 0.08]);
+    expect(xDomain([0.5, 1])[0]).toBe(0);
   });
 
   it("selects a recipe when its point is clicked", () => {

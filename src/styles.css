@@ -48,6 +48,7 @@
   --color-grid: var(--grid);
   --color-frontier: var(--frontier);
   --color-dominated: var(--dominated);
+  --color-dominated-strong: var(--dominated-strong);
   --color-baseline: var(--baseline);
   --color-verified: var(--verified);
   --color-submitted: var(--submitted);
@@ -89,6 +90,7 @@
   --surface-alt: oklch(0.972 0.004 85);
   --frontier: oklch(0.46 0.17 262);
   --dominated: oklch(0.78 0.006 85);
+  --dominated-strong: oklch(0.6 0.01 85);
   --baseline: oklch(0.42 0.02 255);
   --verified: oklch(0.5 0.12 155);
   --submitted: oklch(0.55 0.09 245);

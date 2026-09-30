@@ -12,12 +12,21 @@ import { cn } from "@/lib/utils";
 const W = 1180;
 const H = 500;
 const PAD = { l: 64, r: 24, t: 18, b: 52 };
-/** The requirement line moves in LPIPS units of this size (arrow keys, drag rounding). */
+/** Arrow keys move the requirement line by this much; a drag is continuous (0.001). */
 export const LIMIT_STEP = 0.005;
-const LIMIT_MIN = LIMIT_STEP;
+const LIMIT_MIN = 0.001;
 
 const clampTo = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
-const roundStep = (v: number) => +(Math.round(v / LIMIT_STEP) * LIMIT_STEP).toFixed(3);
+const round3 = (v: number) => +v.toFixed(3);
+const X_STEP = 2;
+
+/** Latency axis [min, max]: starts below the fastest recipe, on a tick, not at zero. */
+export function xDomain(latencies: number[]): [number, number] {
+  const lo = Math.min(...latencies);
+  const hi = Math.max(...latencies);
+  const min = Math.max(0, Math.floor((lo - (hi - lo) * 0.12) / X_STEP) * X_STEP);
+  return [min, hi + (hi - min) * 0.08];
+}
 
 export function ParetoFigure({
   bench,
@@ -36,24 +45,26 @@ export function ParetoFigure({
   const recipes = bench.recipes;
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<Recipe | null>(null);
-  const { xMax, yMax, frontier, frontierIds } = useMemo(() => {
+  const { xMin, xMax, yMax, frontier, frontierIds } = useMemo(() => {
     const f = paretoFrontier(recipes);
+    const [xMin, xMax] = xDomain(recipes.map((r) => r.metrics.latencyS));
     return {
-      xMax: Math.max(...recipes.map((r) => r.metrics.latencyS)) * 1.08,
+      xMin,
+      xMax,
       yMax: Math.max(0.1, ...recipes.map(lpipsOf)) * 1.12,
       frontier: f,
       frontierIds: new Set(f.map((r) => r.id)),
     };
   }, [recipes]);
 
-  const x = (v: number) => PAD.l + (v / xMax) * (W - PAD.l - PAD.r);
+  const x = (v: number) => PAD.l + ((v - xMin) / (xMax - xMin)) * (W - PAD.l - PAD.r);
   const y = (v: number) => H - PAD.b - (v / yMax) * (H - PAD.t - PAD.b);
   const fromY = (py: number) => ((H - PAD.b - py) / (H - PAD.t - PAD.b)) * yMax;
-  const xTicks = ticks(xMax, 2);
+  const xTicks = ticks(xMax, X_STEP).filter((t) => t >= xMin);
   const yTicks = ticks(yMax, 0.02);
   const labelled = new Set([bench.baselineRecipe, selectedId ?? ""]);
-  const limitMax = roundStep(yMax - LIMIT_STEP);
-  const clampLimit = (v: number) => clampTo(roundStep(v), LIMIT_MIN, limitMax);
+  const limitMax = round3(yMax - LIMIT_STEP);
+  const clampLimit = (v: number) => clampTo(round3(v), LIMIT_MIN, limitMax);
 
   const limitFromPointer = (e: React.PointerEvent) => {
     const svg = svgRef.current;
@@ -167,15 +178,18 @@ export function ParetoFigure({
             >
               <circle cx={cx} cy={cy} r={14} fill="transparent" />
               {sel && <circle cx={cx} cy={cy} r={11} className="fill-frontier/12" />}
+              {/* above the limit: hollow, so it stays readable but reads as "not qualifying" */}
               <circle
                 cx={cx}
                 cy={cy}
                 r={sel ? 6.5 : onF ? 4.5 : 4}
                 className={cn(
-                  onF || sel ? "fill-frontier" : "fill-dominated",
-                  out && !sel && "opacity-35",
+                  out && !sel
+                    ? "fill-background stroke-dominated-strong"
+                    : onF || sel
+                      ? "fill-frontier stroke-background"
+                      : "fill-dominated stroke-background",
                 )}
-                stroke="var(--background)"
                 strokeWidth={1.5}
               />
               {labelled.has(r.id) && (
@@ -253,8 +267,9 @@ export function ParetoFigure({
           >
             {tag}
           </text>
+          {/* grip at the axis; the whole dashed line (32px hit area) drags too */}
           <rect
-            x={PAD.l + 150}
+            x={PAD.l + 2}
             y={-6}
             width={30}
             height={12}

@@ -50,79 +50,115 @@ const Num = ({ children }: { children: React.ReactNode }) => (
   <span className="num">{children}</span>
 );
 
+/** One headline number with a small caption underneath. */
+function Tile({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: React.ReactNode;
+  sub?: React.ReactNode;
+}) {
+  return (
+    <div className="border-t border-border-strong pt-2">
+      <dt className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+        {label}
+      </dt>
+      <dd className="num mt-1 text-[22px] leading-none font-semibold tracking-tight">{value}</dd>
+      {sub && <div className="num mt-1.5 text-[12px] text-muted-foreground">{sub}</div>}
+    </div>
+  );
+}
+
 function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
   const m = r.metrics;
+  const isBaseline = r.id === bench.baseline.id;
+  const base = bench.baseline.metrics;
   return (
-    <div className="grid gap-6 sm:grid-cols-2">
-      <Group
-        title="Optimization"
-        rows={
-          r.optimization.length
-            ? r.optimization.map((o) => [o.technique, <Num>{o.method}</Num>])
-            : [[DASH, "none (reference)"]]
-        }
-      />
-      <Group
-        title="Benchmark"
-        rows={[
-          ["Latency", <Num>{m.latencyS.toFixed(1)}s</Num>],
-          ["LPIPS mean", <Num>{fmtLpips(m.lpips?.mean)}</Num>],
-          ["LPIPS max", <Num>{fmtLpips(m.lpips?.max)}</Num>],
-          [
-            "PSNR",
-            <Num>
-              {m.psnr ? `${m.psnr.mean.toFixed(1)} dB (min ${m.psnr.min.toFixed(1)})` : DASH}
-            </Num>,
-          ],
-          ["SSIM", <Num>{m.ssim ? m.ssim.mean.toFixed(3) : DASH}</Num>],
-          ["ImageReward", <Num>{m.imageReward ? m.imageReward.mean.toFixed(2) : DASH}</Num>],
-          ["Peak VRAM", <Num>{m.peakVramGb ? `${m.peakVramGb.toFixed(1)} GB` : DASH}</Num>],
-        ]}
-      />
-      {r.configuration.length > 0 && (
-        <div className="sm:col-span-2">
+    <div className="space-y-7">
+      {/* the three numbers the frontier is drawn from */}
+      <dl className="grid grid-cols-3 gap-5">
+        <Tile
+          label="Latency"
+          value={`${m.latencyS.toFixed(1)}s`}
+          sub={isBaseline ? "reference" : `${speedup(bench, r).toFixed(1)}× faster than baseline`}
+        />
+        <Tile
+          label="LPIPS mean"
+          value={fmtLpips(m.lpips?.mean)}
+          sub={isBaseline ? "reference images" : `max ${fmtLpips(m.lpips?.max)} over the set`}
+        />
+        <Tile
+          label="ImageReward"
+          value={m.imageReward ? m.imageReward.mean.toFixed(2) : DASH}
+          sub={
+            isBaseline
+              ? "absolute, prompt vs image"
+              : `baseline ${base.imageReward ? base.imageReward.mean.toFixed(2) : DASH}`
+          }
+        />
+      </dl>
+
+      <div className="grid gap-6 sm:grid-cols-2">
+        <div>
           <div className="mb-1.5 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-            Configuration
+            Recipe
           </div>
-          <ul className="list-disc space-y-0.5 pl-4 text-[13px]">
-            {r.configuration.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
+          {r.optimization.length ? (
+            <ul className="space-y-1 text-[13px]">
+              {r.optimization.map((o) => (
+                <li key={`${o.technique}-${o.method}`} className="flex gap-2">
+                  <span className="w-[130px] shrink-0 text-muted-foreground">{o.technique}</span>
+                  <Num>{o.method}</Num>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-[13px]">
+              <span className="text-muted-foreground">none</span> — the engine's native run
+            </p>
+          )}
+          {r.configuration.length > 0 && (
+            <ul className="mt-3 list-disc space-y-0.5 pl-4 text-[12px] text-muted-foreground">
+              {r.configuration.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          )}
         </div>
-      )}
-      <div className="sm:col-span-2">
         <Group
-          title="Reproducibility"
+          title="Against the baseline"
           rows={[
-            [
-              "Config",
-              r.configPath ? (
-                <Ext href={fileUrl(r.configPath)}>{basename(r.configPath)}</Ext>
-              ) : (
-                DASH
-              ),
-            ],
-            [
-              "Engine",
-              r.engine.url ? (
-                <Ext href={r.engine.url}>{`${r.engine.name} ${r.engine.version}`}</Ext>
-              ) : (
-                <Num>{`${r.engine.name} ${r.engine.version}`}</Num>
-              ),
-            ],
-            ["Source", r.sourceUrl ? <Ext href={r.sourceUrl}>report</Ext> : DASH],
-            ["Submission", r.pr ? <Ext href={prUrl(r.pr)}>PR #{r.pr}</Ext> : DASH],
-            [
-              "Status",
-              r.status === "Verified"
-                ? "Verified"
-                : `${r.status} — not yet reproduced by maintainers`,
-            ],
-            ["Measured on", <Num>{measuredOnText(bench, r)}</Num>],
+            ["LPIPS max", <Num>{fmtLpips(m.lpips?.max)}</Num>],
+            ["PSNR", <Num>{m.psnr ? `${m.psnr.mean.toFixed(1)} dB` : DASH}</Num>],
+            ["PSNR min", <Num>{m.psnr ? `${m.psnr.min.toFixed(1)} dB` : DASH}</Num>],
+            ["SSIM", <Num>{m.ssim ? m.ssim.mean.toFixed(3) : DASH}</Num>],
+            ["Peak VRAM", <Num>{m.peakVramGb ? `${m.peakVramGb.toFixed(1)} GB` : DASH}</Num>],
           ]}
         />
       </div>
+
+      <Group
+        title="Run"
+        rows={[
+          ["Measured on", <Num>{measuredOnText(bench, r)}</Num>],
+          [
+            "Engine",
+            r.engine.url ? (
+              <Ext href={r.engine.url}>{`${r.engine.name} ${r.engine.version}`}</Ext>
+            ) : (
+              <Num>{`${r.engine.name} ${r.engine.version}`}</Num>
+            ),
+          ],
+          [
+            "Config",
+            r.configPath ? <Ext href={fileUrl(r.configPath)}>{basename(r.configPath)}</Ext> : DASH,
+          ],
+          ["Source", r.sourceUrl ? <Ext href={r.sourceUrl}>report</Ext> : DASH],
+          ["Submission", r.pr ? <Ext href={prUrl(r.pr)}>PR #{r.pr}</Ext> : DASH],
+        ]}
+      />
     </div>
   );
 }
@@ -143,15 +179,23 @@ export function RecipeDialog({
         {recipe && (
           <>
             <DialogHeader className="pr-6">
-              <DialogTitle className="text-[18px] font-semibold tracking-tight">
+              <DialogTitle className="flex flex-wrap items-center gap-3 text-[20px] font-semibold tracking-tight">
                 {recipe.name}
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[11px] font-medium tracking-wider uppercase",
+                    recipe.status === "Verified"
+                      ? "bg-verified/12 text-verified"
+                      : "bg-surface-alt text-muted-foreground",
+                  )}
+                >
+                  {recipe.status}
+                </span>
               </DialogTitle>
-              <DialogDescription className="num text-[13px]">
-                {[
-                  `${recipe.metrics.latencyS.toFixed(1)}s`,
-                  `${speedup(bench, recipe).toFixed(1)}× faster`,
-                  `LPIPS ${fmtLpips(lpipsOf(recipe))}`,
-                ].join(" · ")}
+              <DialogDescription className="text-[13px] text-muted-foreground">
+                {recipe.status === "Verified"
+                  ? "Re-measured by the maintainers on the private held-out set."
+                  : `${recipe.status} — not yet reproduced by the maintainers.`}
               </DialogDescription>
             </DialogHeader>
             <Detail bench={bench} r={recipe} />
@@ -178,9 +222,7 @@ export function ResultsTable({
   onSelect: (id: string) => void;
   onClose: () => void;
 }) {
-  const sorted = [...bench.recipes].sort((a, b) => a.metrics.latencyS - b.metrics.latencyS);
-  const rows = sorted.filter((r) => lpipsOf(r) <= limit);
-  const hidden = sorted.length - rows.length;
+  const rows = [...bench.recipes].sort((a, b) => a.metrics.latencyS - b.metrics.latencyS);
   const open = bench.recipes.find((r) => r.id === openId) ?? null;
   const th = "py-2 pr-5 text-[11px] font-medium tracking-wider text-muted-foreground uppercase";
 
@@ -200,11 +242,16 @@ export function ResultsTable({
         <tbody>
           {rows.map((r) => {
             const sel = r.id === selectedId;
+            const out = lpipsOf(r) > limit;
             return (
               <tr
                 key={r.id}
                 onClick={() => onSelect(r.id)}
-                className="cursor-pointer border-b border-border transition-colors hover:bg-surface-alt"
+                data-within-limit={!out}
+                className={cn(
+                  "cursor-pointer border-b border-border transition-colors hover:bg-surface-alt",
+                  out && "text-muted-foreground/45",
+                )}
               >
                 <td
                   className={cn(
@@ -217,14 +264,21 @@ export function ResultsTable({
                 <td className="num py-2 pr-5 text-right">{fmtLpips(lpipsOf(r))}</td>
                 <td className="num py-2 pr-5 text-right">{speedup(bench, r).toFixed(1)}×</td>
                 <td className={cn("py-2 pr-5", sel ? "font-semibold" : "font-medium")}>{r.name}</td>
-                <td className="num py-2 pr-5 text-[12px] whitespace-nowrap text-muted-foreground">
+                <td
+                  className={cn(
+                    "num py-2 pr-5 text-[12px] whitespace-nowrap",
+                    !out && "text-muted-foreground",
+                  )}
+                >
                   {`${r.engine.name} ${r.engine.version}`}
                 </td>
                 <td className="py-2 text-[12px]">
                   {r.status === "Verified" ? (
                     "✓"
                   ) : (
-                    <span className="text-muted-foreground">{r.status.toLowerCase()}</span>
+                    <span className={cn(!out && "text-muted-foreground")}>
+                      {r.status.toLowerCase()}
+                    </span>
                   )}
                 </td>
               </tr>
@@ -232,12 +286,6 @@ export function ResultsTable({
           })}
         </tbody>
       </table>
-      {hidden > 0 && (
-        <p className="num mt-2 pl-4 text-[12px] text-muted-foreground">
-          {hidden} {hidden === 1 ? "recipe" : "recipes"} above LPIPS {fmtLpips(limit)} hidden —
-          raise the limit on the chart to see {hidden === 1 ? "it" : "them"}.
-        </p>
-      )}
       <RecipeDialog bench={bench} recipe={open} onClose={onClose} />
     </div>
   );
