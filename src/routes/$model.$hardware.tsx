@@ -7,7 +7,6 @@ import {
   fmtLpips,
   fmtResolution,
   hardwareBySlug,
-  isDemo,
   lpipsOf,
   modelBySlug,
   QUALITY_LIMITS,
@@ -95,14 +94,6 @@ function BenchmarkPage() {
               <dd className="text-[13px]">{v}</dd>
             </div>
           ))}
-          {isDemo(bench) && (
-            <div>
-              <dt className="text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
-                Data
-              </dt>
-              <dd className="text-[13px] text-experimental">demo placeholders</dd>
-            </div>
-          )}
         </dl>
       </section>
 
@@ -161,11 +152,6 @@ function BenchmarkPage() {
           openId={openId}
           onSelect={select}
         />
-        {isDemo(bench) && (
-          <p className="mt-2 text-[12px] text-muted-foreground">
-            All numbers are demo placeholders, not benchmark results.
-          </p>
-        )}
       </section>
 
       <section className="mt-14 border-t border-border pt-5">

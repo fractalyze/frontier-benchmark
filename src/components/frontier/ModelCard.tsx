@@ -1,12 +1,14 @@
 import { useState, type ReactNode } from "react";
-import { fmtLimit, isDemo, ladder, speedup, type Benchmark, type ModelInfo } from "@/data/frontier";
+import { fmtLimit, ladder, speedup, type Benchmark, type ModelInfo } from "@/data/frontier";
 import { HardwareSelect } from "./HardwareSelect";
 
 const DASH = "—";
 
 /**
  * One model, a hardware select, and the fastest recipe at each quality limit.
- * Router-free: the route supplies the link around the title via renderLink.
+ * Router-free: the route supplies the link around the title via renderLink. The link's inner
+ * span is stretched over the whole card, so the card is clickable without nesting the select
+ * inside an anchor; the select sits above it with z-10.
  */
 export function ModelCard({
   model,
@@ -21,18 +23,23 @@ export function ModelCard({
   const [hardware, setHardware] = useState(benches[0]!.hardware);
   const bench = benches.find((b) => b.hardware === hardware) ?? benches[0]!;
   return (
-    <div className="flex h-full flex-col rounded-sm border border-border p-4 text-[13px]">
+    <div className="relative flex h-full flex-col rounded-sm border border-border p-4 text-[13px] transition-colors hover:bg-surface-alt">
       <div className="flex items-baseline justify-between gap-3">
         {renderLink(
           bench,
-          <span className="text-[14px] font-medium hover:text-primary">{model.name}</span>,
+          <span className="text-[14px] font-medium after:absolute after:inset-0">
+            {model.name}
+          </span>,
         )}
         <HardwareSelect
           model={model.slug}
           value={bench.hardware}
           onChange={setHardware}
-          className="text-[13px] text-muted-foreground"
+          className="relative z-10 text-[13px] text-muted-foreground"
         />
+      </div>
+      <div className="num mt-0.5 text-[12px] text-muted-foreground">
+        baseline {bench.baseline.metrics.latencyS.toFixed(1)}s
       </div>
 
       <table className="num mt-3 w-full border-collapse">
@@ -52,14 +59,6 @@ export function ModelCard({
           ))}
         </tbody>
       </table>
-
-      <div className="mt-auto flex items-baseline justify-between border-t border-border pt-2.5 text-[12px]">
-        <span className="text-experimental">{isDemo(bench) ? "demo data" : ""}</span>
-        {renderLink(
-          bench,
-          <span className="text-muted-foreground hover:text-primary">Details →</span>,
-        )}
-      </div>
     </div>
   );
 }

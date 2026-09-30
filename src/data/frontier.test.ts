@@ -6,7 +6,6 @@ import {
   findBenchmark,
   fmtLimit,
   fmtLpips,
-  isDemo,
   ladder,
   lpipsOf,
   paretoFrontier,
@@ -121,13 +120,5 @@ describe("fmtLimit", () => {
     expect(fmtLimit(0.01)).toBe(".01");
     expect(fmtLimit(0.05)).toBe(".05");
     expect(fmtLimit(0.1)).toBe(".10");
-  });
-});
-
-describe("isDemo", () => {
-  it("is true only while every recipe is Experimental", () => {
-    expect(isDemo(bench)).toBe(true);
-    const verified = { ...bench.baseline, status: "Verified" as const };
-    expect(isDemo({ ...bench, recipes: [verified, ...recipes.slice(1)] })).toBe(false);
   });
 });

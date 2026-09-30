@@ -145,9 +145,6 @@ export const findBenchmark = (model: string, hardware: string) =>
 export const modelBySlug = (s: string) => MODELS.find((m) => m.slug === s);
 export const hardwareBySlug = (s: string) => HARDWARE.find((h) => h.slug === s);
 
-/** Nothing on the page was actually measured; both surfaces show the same warning off this. */
-export const isDemo = (b: Benchmark) => b.recipes.every((r) => r.status === "Experimental");
-
 /** Baseline (lpips null) counts as zero loss. */
 export const lpipsOf = (rec: Recipe) => rec.metrics.lpips?.mean ?? 0;
 

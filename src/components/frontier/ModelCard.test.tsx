@@ -27,17 +27,15 @@ const rows = () =>
   );
 
 describe("ModelCard", () => {
-  it("shows the model name and a hardware select, both linking to the benchmark page", () => {
+  it("links the title (stretched over the card), shows baseline latency and a hardware select", () => {
     render(<ModelCard model={model} benches={[bench]} renderLink={link} />);
-    expect(screen.getByText("Qwen-Image 2.1").closest("a")).toHaveAttribute(
-      "href",
-      "/qwen-image-2.1/rtx5090",
-    );
-    expect(screen.getByRole("combobox", { name: "Hardware" })).toHaveValue("rtx5090");
-    expect(screen.getByText("Details →").closest("a")).toHaveAttribute(
-      "href",
-      "/qwen-image-2.1/rtx5090",
-    );
+    const title = screen.getByText("Qwen-Image 2.1");
+    expect(title.closest("a")).toHaveAttribute("href", "/qwen-image-2.1/rtx5090");
+    expect(title).toHaveClass("after:absolute", "after:inset-0");
+    expect(screen.getByText("baseline 12.0s")).toBeInTheDocument();
+    const select = screen.getByRole("combobox", { name: "Hardware" });
+    expect(select).toHaveValue("rtx5090");
+    expect(select).toHaveClass("z-10");
   });
 
   it("renders speedup and recipe for each default limit", () => {
@@ -71,16 +69,13 @@ describe("ModelCard", () => {
     select.append(new Option("H100", "h100"));
     fireEvent.change(select, { target: { value: "h100" } });
     expect(rows()[0]).toEqual(["≤ .01", "1.0×", "Baseline"]);
-    expect(screen.getByText("Details →").closest("a")).toHaveAttribute(
+    expect(screen.getByText("Qwen-Image 2.1").closest("a")).toHaveAttribute(
       "href",
       "/qwen-image-2.1/h100",
     );
   });
 
-  it("marks demo data and renders em dashes when no recipe meets a limit", () => {
-    render(<ModelCard model={model} benches={[bench]} renderLink={link} />);
-    expect(screen.getByText("demo data")).toHaveClass("text-experimental");
-    cleanup();
+  it("renders em dashes when no recipe meets a limit", () => {
     const empty: Benchmark = { ...bench, recipes: [] };
     render(<ModelCard model={model} benches={[empty]} renderLink={link} />);
     for (const cells of rows()) expect(cells.slice(1)).toEqual(["—", "—"]);
