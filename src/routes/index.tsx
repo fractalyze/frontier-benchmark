@@ -45,18 +45,23 @@ function Index() {
   );
   return (
     <SiteShell>
-      <div className="max-w-xl pt-10 text-[15px]">
+      <section className="mx-auto max-w-2xl pt-14 text-center text-[15px]">
         <p className="text-muted-foreground">
-          For one model on one GPU, each optimization recipe is measured against the baseline. The
+          For one model on one GPU, every optimization recipe is measured against the baseline. The
           frontier is the recipe that solves
         </p>
-        <p className="num mt-3 text-[14px]">
-          <span className="text-muted-foreground">minimize</span> latency(recipe)
-          <br />
-          <span className="text-muted-foreground">subject to</span> LPIPS(recipe, baseline) ≤ ε
-        </p>
-        <p className="mt-3 text-muted-foreground">for the quality loss ε you choose.</p>
-      </div>
+        <div className="num mt-6 inline-grid grid-cols-[auto_auto] gap-x-6 gap-y-2 rounded-sm border border-border bg-surface-alt px-8 py-5 text-left text-[17px]">
+          <span className="text-[11px] leading-[1.9] font-medium tracking-wider text-muted-foreground uppercase">
+            minimize
+          </span>
+          <span>latency(recipe)</span>
+          <span className="text-[11px] leading-[1.9] font-medium tracking-wider text-muted-foreground uppercase">
+            subject to
+          </span>
+          <span>LPIPS(recipe, baseline) ≤ ε</span>
+        </div>
+        <p className="mt-5 text-muted-foreground">for the quality loss ε you choose.</p>
+      </section>
 
       {groups.map((g) => (
         <section key={g} className="mt-10">
