@@ -10,7 +10,7 @@
     "40 steps",
     "BF16",
     "torch_sdpa attention",
-    "DiT layerwise offload",
+    "text encoder layerwise offload, DiT and VAE resident",
     "eager (no compile, no CUDA graphs)"
   ],
   "configPath": null,

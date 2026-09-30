@@ -22,24 +22,6 @@ const measuredOnText = (bench: Benchmark, r: Recipe) => {
 
 const basename = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
-function Group({ title, rows }: { title: string; rows: [string, React.ReactNode][] }) {
-  return (
-    <div className="min-w-0">
-      <div className="mb-1.5 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-        {title}
-      </div>
-      <dl className="grid grid-cols-[130px_minmax(0,1fr)] gap-y-1 text-[13px]">
-        {rows.map(([k, v]) => (
-          <Fragment key={k}>
-            <dt className="text-muted-foreground">{k}</dt>
-            <dd className="min-w-0 break-words">{v}</dd>
-          </Fragment>
-        ))}
-      </dl>
-    </div>
-  );
-}
-
 const Ext = ({ href, children }: { href: string; children: React.ReactNode }) => (
   <a href={href} target="_blank" rel="noreferrer" className="num text-primary hover:underline">
     {children} ↗
@@ -55,19 +37,39 @@ function Tile({
   label,
   value,
   sub,
+  size = "lg",
 }: {
   label: string;
   value: React.ReactNode;
   sub?: React.ReactNode;
+  size?: "lg" | "sm";
 }) {
   return (
     <div className="border-t border-border-strong pt-2">
       <dt className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
         {label}
       </dt>
-      <dd className="num mt-1 text-[22px] leading-none font-semibold tracking-tight">{value}</dd>
+      <dd
+        className={cn(
+          "num mt-1 leading-none font-semibold tracking-tight",
+          size === "lg" ? "text-[22px]" : "text-[15px]",
+        )}
+      >
+        {value}
+      </dd>
       {sub && <div className="num mt-1.5 text-[12px] text-muted-foreground">{sub}</div>}
     </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <h3 className="mb-1.5 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+        {title}
+      </h3>
+      {children}
+    </section>
   );
 }
 
@@ -75,9 +77,23 @@ function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
   const m = r.metrics;
   const isBaseline = r.id === bench.baseline.id;
   const base = bench.baseline.metrics;
+  const run: [string, React.ReactNode][] = [
+    [
+      "Engine",
+      r.engine.url ? (
+        <Ext href={r.engine.url}>{`${r.engine.name} ${r.engine.version}`}</Ext>
+      ) : (
+        <Num>{`${r.engine.name} ${r.engine.version}`}</Num>
+      ),
+    ],
+  ];
+  if (r.configPath) run.push(["Config", <Ext href={fileUrl(r.configPath)}>{basename(r.configPath)}</Ext>]);
+  if (r.sourceUrl) run.push(["Source", <Ext href={r.sourceUrl}>report</Ext>]);
+  if (r.pr) run.push(["Submission", <Ext href={prUrl(r.pr)}>PR #{r.pr}</Ext>]);
+
   return (
-    <div className="space-y-7">
-      {/* the three numbers the frontier is drawn from */}
+    <div className="space-y-6">
+      {/* the numbers the frontier is drawn from */}
       <dl className="grid grid-cols-3 gap-5">
         <Tile
           label="Latency"
@@ -99,66 +115,60 @@ function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
           }
         />
       </dl>
-
-      <div className="grid gap-6 sm:grid-cols-2">
-        <div>
-          <div className="mb-1.5 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-            Recipe
-          </div>
-          {r.optimization.length ? (
-            <ul className="space-y-1 text-[13px]">
-              {r.optimization.map((o) => (
-                <li key={`${o.technique}-${o.method}`} className="flex gap-2">
-                  <span className="w-[130px] shrink-0 text-muted-foreground">{o.technique}</span>
-                  <Num>{o.method}</Num>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-[13px]">
-              <span className="text-muted-foreground">none</span> — the engine's native run
-            </p>
-          )}
-          {r.configuration.length > 0 && (
-            <ul className="mt-3 list-disc space-y-0.5 pl-4 text-[12px] text-muted-foreground">
-              {r.configuration.map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <Group
-          title="Against the baseline"
-          rows={[
-            ["LPIPS max", <Num>{fmtLpips(m.lpips?.max)}</Num>],
-            ["PSNR", <Num>{m.psnr ? `${m.psnr.mean.toFixed(1)} dB` : DASH}</Num>],
-            ["PSNR min", <Num>{m.psnr ? `${m.psnr.min.toFixed(1)} dB` : DASH}</Num>],
-            ["SSIM", <Num>{m.ssim ? m.ssim.mean.toFixed(3) : DASH}</Num>],
-            ["Peak VRAM", <Num>{m.peakVramGb ? `${m.peakVramGb.toFixed(1)} GB` : DASH}</Num>],
-          ]}
+      <dl className="grid grid-cols-3 gap-5">
+        <Tile
+          size="sm"
+          label="PSNR"
+          value={m.psnr ? `${m.psnr.mean.toFixed(1)} dB` : DASH}
+          sub={m.psnr ? `min ${m.psnr.min.toFixed(1)} dB` : undefined}
         />
-      </div>
+        <Tile size="sm" label="SSIM" value={m.ssim ? m.ssim.mean.toFixed(3) : DASH} />
+        <Tile
+          size="sm"
+          label="Peak VRAM"
+          value={m.peakVramGb ? `${m.peakVramGb.toFixed(1)} GB` : DASH}
+        />
+      </dl>
 
-      <Group
-        title="Run"
-        rows={[
-          ["Measured on", <Num>{measuredOnText(bench, r)}</Num>],
-          [
-            "Engine",
-            r.engine.url ? (
-              <Ext href={r.engine.url}>{`${r.engine.name} ${r.engine.version}`}</Ext>
-            ) : (
-              <Num>{`${r.engine.name} ${r.engine.version}`}</Num>
-            ),
-          ],
-          [
-            "Config",
-            r.configPath ? <Ext href={fileUrl(r.configPath)}>{basename(r.configPath)}</Ext> : DASH,
-          ],
-          ["Source", r.sourceUrl ? <Ext href={r.sourceUrl}>report</Ext> : DASH],
-          ["Submission", r.pr ? <Ext href={prUrl(r.pr)}>PR #{r.pr}</Ext> : DASH],
-        ]}
-      />
+      <Section title="Recipe">
+        {r.optimization.length ? (
+          <dl className="grid grid-cols-[130px_minmax(0,1fr)] gap-y-1 text-[13px]">
+            {r.optimization.map((o, i) => (
+              <Fragment key={`${o.technique}-${o.method}-${i}`}>
+                <dt className="text-muted-foreground">{o.technique}</dt>
+                <dd className="num min-w-0">{o.method}</dd>
+              </Fragment>
+            ))}
+          </dl>
+        ) : (
+          <p className="text-[13px]">
+            <span className="text-muted-foreground">none</span> — the engine's native run
+          </p>
+        )}
+      </Section>
+
+      {r.configuration.length > 0 && (
+        <Section title="Configuration">
+          <ul className="list-disc space-y-1 pl-4 text-[12.5px] leading-snug text-muted-foreground sm:columns-2 sm:gap-x-8">
+            {r.configuration.map((line) => (
+              <li key={line} className="break-inside-avoid">
+                {line}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
+      <Section title="Run">
+        <dl className="grid grid-cols-[130px_minmax(0,1fr)] gap-y-1 text-[13px]">
+          {run.map(([k, v]) => (
+            <Fragment key={k}>
+              <dt className="text-muted-foreground">{k}</dt>
+              <dd className="min-w-0 break-words">{v}</dd>
+            </Fragment>
+          ))}
+        </dl>
+      </Section>
     </div>
   );
 }
@@ -179,8 +189,10 @@ export function RecipeDialog({
         {recipe && (
           <>
             <DialogHeader className="pr-6">
-              <DialogTitle className="flex flex-wrap items-center gap-3 text-[20px] font-semibold tracking-tight">
+              <DialogTitle className="text-[18px] leading-snug font-semibold tracking-tight">
                 {recipe.name}
+              </DialogTitle>
+              <DialogDescription className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-muted-foreground">
                 <span
                   className={cn(
                     "rounded-full px-2 py-0.5 text-[11px] font-medium tracking-wider uppercase",
@@ -191,11 +203,7 @@ export function RecipeDialog({
                 >
                   {recipe.status}
                 </span>
-              </DialogTitle>
-              <DialogDescription className="text-[13px] text-muted-foreground">
-                {recipe.status === "Verified"
-                  ? "Re-measured by the maintainers on the private held-out set."
-                  : `${recipe.status} — not yet reproduced by the maintainers.`}
+                <span className="num">measured on {measuredOnText(bench, recipe)}</span>
               </DialogDescription>
             </DialogHeader>
             <Detail bench={bench} r={recipe} />

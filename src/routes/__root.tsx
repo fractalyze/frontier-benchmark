@@ -10,6 +10,7 @@ import {
 import type { ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import { SITE_URL } from "@/data/site";
 
 function NotFoundComponent() {
   return (
@@ -79,7 +80,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content: "Open benchmark for generative inference optimization recipes.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "Inference Frontier" },
+      { property: "og:image", content: `${SITE_URL}/og.png` },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:alt", content: "Inference Frontier — latency-quality frontiers for generative inference" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: `${SITE_URL}/og.png` },
+      { name: "theme-color", content: "#3454c9" },
     ],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -92,7 +100,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+      { rel: "icon", href: "/favicon.ico", sizes: "32x32" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
     ],
   }),
 
