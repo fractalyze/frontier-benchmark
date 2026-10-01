@@ -181,11 +181,11 @@ export function ParetoFigure({
               <circle cx={cx} cy={cy} r={14} fill="transparent" />
               {sel && <circle cx={cx} cy={cy} r={11} className="fill-frontier/12" />}
               {/* frontier points are solid (blue within the limit, grey above it);
-                  dominated recipes are hollow rings so the frontier reads at a glance */}
+                  dominated recipes are dashed rings so the frontier reads at a glance */}
               <circle
                 cx={cx}
                 cy={cy}
-                r={sel ? 6.5 : onF ? 4.5 : 3.5}
+                r={sel ? 6.5 : onF ? 4.5 : 4}
                 className={cn(
                   sel || (onF && !out)
                     ? "fill-frontier stroke-background"
@@ -196,6 +196,7 @@ export function ParetoFigure({
                         : "fill-background stroke-dominated-strong",
                 )}
                 strokeWidth={1.5}
+                strokeDasharray={sel || onF ? undefined : "2.5 2"}
               />
               {labelled.has(r.id) && (
                 <text
