@@ -48,24 +48,30 @@ A placeholder recipe fails `npm test` ("non-baseline recipe is missing lpips")
 until it is measured. Never commit or deploy one. Check the spec resolves:
 
 ```bash
-/data/a41/frontier-venv/bin/python -c "from bench import protocol; print(protocol.spec_for('<model>','<hardware>','<id>'))"
+python -c "from bench import protocol; print(protocol.spec_for('<model>','<hardware>','<id>'))"
 ```
 
-## 3. Smoke, then measure (maintainers, GPU0)
+## 3. Smoke, then measure (maintainers only)
+
+The harness needs the reference GPU, the engine checkout and the private
+held-out corpus, so only maintainers run it. Submitters stop after step 2 (see
+"Submitting from outside"). Paths come from the environment:
+`BENCH_HELDOUT` (held-out corpus, never in the repo), `BENCH_RUNS` (run root),
+plus the harness knobs in `bench/README.md`.
 
 ```bash
-cd /home/a41/Workspace/frontier-benchmark
-PY=/data/a41/frontier-venv/bin/python
+# from the repo root, with the harness venv activated
+PY=python
 # 2 pairs, 2 warmups, no emit — proves the config loads and runs
-$PY -m bench.run --model <model> --recipe <id> --prompts /data/a41/frontier-heldout/heldout-v1.json \
-  --prompt-set smoke --runs /data/a41/frontier-runs/<model>-smoke --warmups 2 --limit 2 --no-emit --no-image-reward
+python -m bench.run --model <model> --recipe <id> --prompts $BENCH_HELDOUT \
+  --prompt-set smoke --runs $BENCH_RUNS/<model>-smoke --warmups 2 --limit 2 --no-emit --no-image-reward
 # full held-out run; renders the baseline first if missing, scores, writes the recipe file
-$PY -m bench.run --model <model> --recipe <id> --prompts /data/a41/frontier-heldout/heldout-v1.json \
-  --prompt-set heldout-v1 --runs /data/a41/frontier-runs/<model>/heldout-v1
+python -m bench.run --model <model> --recipe <id> --prompts $BENCH_HELDOUT \
+  --prompt-set heldout-v1 --runs $BENCH_RUNS/<model>/heldout-v1
 ```
 
-The run refuses to start while `/tmp/claude-1000/gpu-server-gpu0.lock` or
-`/data/a41/locks/gpu0.lock` is held, waits for a quiet GPU, and marks a run
+The run refuses to start while a GPU lock directory (`BENCH_GPU_LOCKS`, see
+`bench/env.py`) is held, waits for a quiet GPU, and marks a run
 DIRTY if a foreign process overlapped it (then `emit` refuses). Sibling sessions
 re-take the lock within seconds, so queue long jobs in a script that polls
 every 2 s and retries on "refusing to measure". Use `pgrep`/`pkill` patterns
@@ -85,17 +91,19 @@ note it in the PR.
 
 ```bash
 source ~/.nvm/nvm.sh && nvm use 22
-/data/a41/frontier-venv/bin/python -m pytest -q
+python -m pytest -q
 npm test && npx eslint . && npm run build
 ```
 
-Screenshot the benchmark page with headless Chromium (Playwright,
-`~/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome`) against
-`npx vite dev --port 8082`. Commit as `feat: …` (no scope in the title), open a
+Screenshot the benchmark page with headless Chromium (Playwright) against
+`npx vite dev`. Commit as `feat: …` (no scope in the title), open a
 PR, merge, then deploy (see [deploy.md](deploy.md)).
 
 ## Submitting from outside
 
-Steps 1–2 plus your own numbers on the public set (`status: "Submitted"`,
-`measuredOn: "public"`) in a pull request. Maintainers re-measure on the
-held-out set and flip the status to `Verified`.
+Open a pull request with steps 1–2. If you measured on the same GPU, put your
+numbers on the public set in the recipe (`status: "Submitted"`,
+`measuredOn: "public"`); otherwise leave the placeholders and say so. Either
+way the maintainers run the recipe on the reference machine, write the
+held-out numbers and merge it as `Verified`. (A placeholder recipe fails the
+tests until then, which is expected for a submission.)

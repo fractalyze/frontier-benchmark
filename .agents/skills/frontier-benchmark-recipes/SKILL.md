@@ -1,9 +1,13 @@
 ---
 name: frontier-benchmark-recipes
-description: Add, re-measure or publish an optimization recipe, or add a new model × hardware benchmark page, in the Inference Frontier repo (data/benchmarks JSON + the bench/ harness). Use when asked to add a recipe, add a model or GPU, measure or verify a configuration, fix "non-baseline recipe is missing lpips", or update a page's numbers.
+description: Maintainer-side skill for the Inference Frontier repo — measure and publish an optimization recipe, or add a new model × hardware benchmark page (data/benchmarks JSON + the bench/ harness on the reference machine). Use when asked to add a recipe, add a model or GPU, measure or verify a configuration, fix "non-baseline recipe is missing lpips", or update a page's numbers.
 ---
 
-# Inference Frontier: recipes and models
+# Inference Frontier: recipes and models (maintainers)
+
+Outside contributors submit a config + recipe JSON in a PR; we run it here.
+The harness expects `BENCH_HELDOUT` (private corpus), `BENCH_RUNS` (run root)
+and the knobs in `bench/README.md`; never write machine paths into the repo.
 
 Reference docs (read the one you need, they are short):
 `docs/data-model.md` (fields, workloads, loader rules),
@@ -13,17 +17,17 @@ Reference docs (read the one you need, they are short):
 ## Quick start: one new recipe on an existing page
 
 ```bash
-cd /home/a41/Workspace/frontier-benchmark && source ~/.nvm/nvm.sh && nvm use 22
-PY=/data/a41/frontier-venv/bin/python
+source ~/.nvm/nvm.sh && nvm use 22   # from the repo root, harness venv activated
+PY=python
 D=data/benchmarks/<model>/<hardware>
 cp $D/configs/fp8-sage2.json $D/configs/<id>.json      # edit server/env/request
 cp $D/recipes/fp8-sage2.json $D/recipes/<id>.json      # id, optimization, configuration, configPath, placeholders
-$PY -c "from bench import protocol; print(protocol.spec_for('<model>','<hardware>','<id>'))"
-$PY -m bench.run --model <model> --recipe <id> --prompts /data/a41/frontier-heldout/heldout-v1.json \
-  --prompt-set smoke --runs /data/a41/frontier-runs/<model>-smoke --warmups 2 --limit 2 --no-emit --no-image-reward
-$PY -m bench.run --model <model> --recipe <id> --prompts /data/a41/frontier-heldout/heldout-v1.json \
-  --prompt-set heldout-v1 --runs /data/a41/frontier-runs/<model>/heldout-v1      # emits Verified metrics
-$PY -m pytest -q && npm test && npx eslint . && npm run build
+python -c "from bench import protocol; print(protocol.spec_for('<model>','<hardware>','<id>'))"
+python -m bench.run --model <model> --recipe <id> --prompts $BENCH_HELDOUT \
+  --prompt-set smoke --runs $BENCH_RUNS/<model>-smoke --warmups 2 --limit 2 --no-emit --no-image-reward
+python -m bench.run --model <model> --recipe <id> --prompts $BENCH_HELDOUT \
+  --prompt-set heldout-v1 --runs $BENCH_RUNS/<model>/heldout-v1      # emits Verified metrics
+python -m pytest -q && npm test && npx eslint . && npm run build
 ```
 
 ## Workflow: add a recipe
@@ -47,7 +51,7 @@ $PY -m pytest -q && npm test && npx eslint . && npm run build
 1. `src/data/frontier.ts`: `MODELS` entry with `workload`; `HARDWARE` if new;
    a `WORKLOADS` entry + schema metrics key if the workload is new.
 2. `bench/protocol.py`: `MODELS[slug] = Model(repo, pinned revision, model_id)`;
-   an `OFFLOAD` mode if needed; checkpoint downloaded to `/data/a41/hf-cache`.
+   an `OFFLOAD` mode if needed; checkpoint downloaded under `$HF_HOME`.
 3. `benchmark.json` (workload, protocol `v0.1`, prompt sets, baseline id),
    baseline recipe (`optimization: []`, `configPath: null`), then recipes.
 4. Tests: benchmark list + recipe count in `frontier.test.ts`; a spec test in

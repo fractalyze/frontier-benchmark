@@ -7,8 +7,8 @@ recipe's server kwargs on the study's 10 calibration prompts and writes one
 schedule per budget into the recipe's configs directory.
 
     python -m bench.calibrate --recipe fp8-sage2-kernels --budgets 12 16 20 \
-        --prompts /data/a41/frontier-calib/calibration-prompts.jsonl \
-        --capture-dir /data/a41/frontier-calib/fp8-sage2-kernels
+        --prompts "$BENCH_CALIB/calibration-prompts.jsonl" \
+        --capture-dir "$BENCH_CALIB/fp8-sage2-kernels"
 """
 
 from __future__ import annotations

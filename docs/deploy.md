@@ -3,14 +3,13 @@
 The site is a TanStack Start app deployed to Vercel, project
 `fractalyze/frontier`, production URL https://frontier-fractalyze.vercel.app.
 
-Deploys run from the Vercel CLI, not from Git: the team's GitHub integration
-cannot see this repository. The CLI lives at
-`~/.nvm/versions/node/v22.17.1/bin/vercel`.
+Deploys run from the Vercel CLI (`npm i -g vercel`, logged in to the team),
+not from Git: the team's GitHub integration cannot see this repository.
 
 ## Preview or production
 
 ```bash
-cd /home/a41/Workspace/frontier-benchmark && git checkout main && git pull --ff-only
+git checkout main && git pull --ff-only          # from the repo root
 DST=$(mktemp -d)/deploy
 mkdir -p "$DST"
 rsync -a --exclude node_modules --exclude .git --exclude .output --exclude .nitro \
