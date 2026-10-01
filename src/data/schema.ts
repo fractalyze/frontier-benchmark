@@ -15,6 +15,8 @@ export const TECHNIQUES = [
   "Parallelism",
 ] as const;
 export const STATUSES = ["Verified", "Submitted", "Experimental"] as const;
+/** What a benchmark's output is; decides the quality and latency axes (see WORKLOADS). */
+export const WORKLOAD_SLUGS = ["image", "video", "speech"] as const;
 export const MEASURED_ON = ["public", "held-out"] as const;
 
 const slug = z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "expected a slug");
@@ -38,6 +40,7 @@ export const BenchmarkFileSchema = z
   .object({
     model: text,
     hardware: text,
+    workload: z.enum(WORKLOAD_SLUGS),
     protocol: z
       .object({
         version: text,
@@ -74,7 +77,10 @@ export const RecipeFileSchema = z
       .object({
         latencyS: pos,
         peakVramGb: pos.nullable(),
+        /** Image / video quality loss vs the baseline output (mean and max over the set). */
         lpips: z.object({ mean: nonneg, max: nonneg }).strict().nullable(),
+        /** Speech quality loss vs the baseline: word-error-rate increase (mean and max). */
+        wer: z.object({ mean: nonneg, max: nonneg }).strict().nullable().optional(),
         psnr: z.object({ mean: pos, min: pos }).strict().nullable(),
         ssim: z
           .object({ mean: z.number().min(0).max(1) })
@@ -95,5 +101,6 @@ export const RecipeFileSchema = z
 export type Technique = (typeof TECHNIQUES)[number];
 export type VerificationStatus = (typeof STATUSES)[number];
 export type MeasuredOn = (typeof MEASURED_ON)[number];
+export type WorkloadSlug = (typeof WORKLOAD_SLUGS)[number];
 export type BenchmarkFile = z.infer<typeof BenchmarkFileSchema>;
 export type RecipeFile = z.infer<typeof RecipeFileSchema>;

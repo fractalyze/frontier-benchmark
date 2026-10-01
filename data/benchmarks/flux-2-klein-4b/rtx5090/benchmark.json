@@ -1,6 +1,7 @@
 {
   "model": "flux-2-klein-4b",
   "hardware": "rtx5090",
+  "workload": "image",
   "protocol": {
     "version": "v0.1",
     "resolution": "1024x1024",

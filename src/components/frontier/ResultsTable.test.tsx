@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 
-import { findBenchmark, lpipsOf, speedup } from "@/data/frontier";
+import { findBenchmark, lossOf, speedup } from "@/data/frontier";
 import { ResultsTable } from "./ResultsTable";
 
 // No `globals: true` in the vitest config, so RTL's auto-cleanup needs handling here.
@@ -58,7 +58,7 @@ describe("ResultsTable", () => {
       .map((c) => c.textContent);
     expect(cells).toEqual([
       `${k20.metrics.latencyS.toFixed(1)}s`,
-      `.${Math.round(lpipsOf(k20) * 1000)
+      `.${Math.round(lossOf(bench, k20) * 1000)
         .toString()
         .padStart(3, "0")}`,
       `${speedup(bench, k20).toFixed(1)}×`,
@@ -74,7 +74,7 @@ describe("ResultsTable", () => {
     const rows = screen.getAllByRole("row").slice(1); // skip the header
     expect(rows).toHaveLength(bench.recipes.length);
     const within = rows.filter((r) => r.getAttribute("data-within-limit") === "true");
-    expect(within).toHaveLength(bench.recipes.filter((r) => lpipsOf(r) <= limit).length);
+    expect(within).toHaveLength(bench.recipes.filter((r) => lossOf(bench, r) <= limit).length);
     expect(rowOf("DPCache K=12")).toHaveAttribute("data-within-limit", "false");
     expect(rowOf("DPCache K=20")).toHaveAttribute("data-within-limit", "true");
   });

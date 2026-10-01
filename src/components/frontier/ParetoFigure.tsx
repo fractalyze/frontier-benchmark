@@ -1,8 +1,10 @@
 import { useMemo, useRef, useState } from "react";
 import {
-  fmtLpips,
-  lpipsOf,
+  fmtLatency,
+  fmtLoss,
+  lossOf,
   paretoFrontier,
+  workloadOf,
   speedup,
   type Benchmark,
   type Recipe,
@@ -45,17 +47,19 @@ export function ParetoFigure({
   const recipes = bench.recipes;
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<Recipe | null>(null);
+  const workload = workloadOf(bench);
+  const loss = (r: Recipe) => lossOf(bench, r);
   const { xMin, xMax, yMax, frontier, frontierIds } = useMemo(() => {
-    const f = paretoFrontier(recipes);
+    const f = paretoFrontier(bench);
     const [xMin, xMax] = xDomain(recipes.map((r) => r.metrics.latencyS));
     return {
       xMin,
       xMax,
-      yMax: Math.max(0.1, ...recipes.map(lpipsOf)) * 1.12,
+      yMax: Math.max(0.1, ...recipes.map((r) => lossOf(bench, r))) * 1.12,
       frontier: f,
       frontierIds: new Set(f.map((r) => r.id)),
     };
-  }, [recipes]);
+  }, [bench, recipes]);
 
   const x = (v: number) => PAD.l + ((v - xMin) / (xMax - xMin)) * (W - PAD.l - PAD.r);
   const y = (v: number) => H - PAD.b - (v / yMax) * (H - PAD.t - PAD.b);
@@ -77,7 +81,7 @@ export function ParetoFigure({
   };
   const nudge = (delta: number) => onLimitChange(clampLimit(limit + delta));
   const ly = y(limit);
-  const tag = `LPIPS ≤ ${fmtLpips(limit)}`;
+  const tag = `${workload.quality.name} ≤ ${fmtLoss(bench, limit)}`;
 
   return (
     <div className="relative">
@@ -105,7 +109,7 @@ export function ParetoFigure({
               textAnchor="end"
               className="num fill-muted-foreground text-[12px]"
             >
-              {t === 0 ? "0" : fmtLpips(t)}
+              {t === 0 ? "0" : fmtLoss(bench, t)}
             </text>
           </g>
         ))}
@@ -136,14 +140,14 @@ export function ParetoFigure({
           textAnchor="middle"
           className="fill-muted-foreground text-[13px]"
         >
-          E2E latency (s)
+          {workload.latency.axis}
         </text>
         <text
           transform={`translate(16 ${(H - PAD.b + PAD.t) / 2}) rotate(-90)`}
           textAnchor="middle"
           className="fill-muted-foreground text-[13px]"
         >
-          Quality loss (LPIPS)
+          {`Quality loss (${workload.quality.name})`}
         </text>
         <text
           x={PAD.l + 12}
@@ -154,7 +158,7 @@ export function ParetoFigure({
         </text>
 
         <polyline
-          points={frontier.map((r) => `${x(r.metrics.latencyS)},${y(lpipsOf(r))}`).join(" ")}
+          points={frontier.map((r) => `${x(r.metrics.latencyS)},${y(loss(r))}`).join(" ")}
           fill="none"
           className="stroke-frontier"
           strokeOpacity={0.55}
@@ -164,9 +168,9 @@ export function ParetoFigure({
         {recipes.map((r) => {
           const onF = frontierIds.has(r.id);
           const sel = r.id === selectedId;
-          const out = lpipsOf(r) > limit;
+          const out = loss(r) > limit;
           const cx = x(r.metrics.latencyS);
-          const cy = y(lpipsOf(r));
+          const cy = y(loss(r));
           const right = cx > W * 0.7;
           return (
             <g
@@ -195,8 +199,8 @@ export function ParetoFigure({
                         ? "fill-background stroke-dominated"
                         : "fill-background stroke-dominated-strong",
                 )}
-                strokeWidth={1.5}
-                strokeDasharray={sel || onF ? undefined : "2.5 2"}
+                strokeWidth={sel || onF ? 1.5 : 1.2}
+                strokeDasharray={sel || onF ? undefined : "1.2 1.6"}
               />
               {labelled.has(r.id) && (
                 <text
@@ -220,7 +224,7 @@ export function ParetoFigure({
           transform={`translate(0 ${ly})`}
           role="slider"
           tabIndex={0}
-          aria-label="Quality limit: maximum acceptable LPIPS"
+          aria-label={`Quality limit: maximum acceptable ${workload.quality.name}`}
           aria-valuemin={LIMIT_MIN}
           aria-valuemax={limitMax}
           aria-valuenow={limit}
@@ -273,15 +277,24 @@ export function ParetoFigure({
           >
             {tag}
           </text>
-          {/* grip at the axis; the whole dashed line (32px hit area) drags too */}
+          {/* vertical grip at the axis (the limit moves up and down); the whole dashed
+              line (32px hit area) drags too */}
           <rect
-            x={PAD.l + 2}
-            y={-6}
-            width={30}
-            height={12}
-            rx={6}
+            x={PAD.l + 4}
+            y={-13}
+            width={14}
+            height={26}
+            rx={7}
             className="fill-background stroke-foreground"
             strokeWidth={1.3}
+          />
+          <path
+            d={`M${PAD.l + 8} -4.5 l3 -3 l3 3 M${PAD.l + 8} 4.5 l3 3 l3 -3`}
+            fill="none"
+            className="stroke-foreground"
+            strokeWidth={1.3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
           />
         </g>
       </svg>
@@ -291,13 +304,14 @@ export function ParetoFigure({
           className="pointer-events-none absolute z-20 rounded-sm border border-border bg-popover px-2.5 py-2 text-[12px]"
           style={{
             left: `${(x(hover.metrics.latencyS) / W) * 100}%`,
-            top: `${(y(lpipsOf(hover)) / H) * 100}%`,
+            top: `${(y(loss(hover)) / H) * 100}%`,
             transform: `translate(${x(hover.metrics.latencyS) > W * 0.6 ? "calc(-100% - 14px)" : "14px"}, -50%)`,
           }}
         >
           <div className="max-w-64 font-medium">{hover.name}</div>
           <div className="num mt-1 text-muted-foreground">
-            {hover.metrics.latencyS.toFixed(1)}s · LPIPS {fmtLpips(lpipsOf(hover))} ·{" "}
+            {fmtLatency(bench, hover.metrics.latencyS)} · {workload.quality.name}{" "}
+            {fmtLoss(bench, loss(hover))} ·{" "}
             {speedup(bench, hover).toFixed(1)}× faster
           </div>
         </div>

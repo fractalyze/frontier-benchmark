@@ -25,7 +25,8 @@ weights are never changed; distilled or fine-tuned checkpoints are not recipes.
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `latencyS`    | One image, prompt in → image out, one request at a time; how it was timed is written in `benchmark.json` `timing`                                                         |
 | `peakVramGb`  | Peak GPU memory the engine reports over the timed renders (`null` when the source did not record it)                                                                     |
-| `lpips`       | LPIPS(alex) vs. the baseline image for the same prompt and seed, mean and max over the prompt set. **Primary quality axis** — every chart and quality limit uses the mean |
+| `lpips`       | LPIPS(alex) vs. the baseline image for the same prompt and seed, mean and max over the prompt set. **Primary quality axis** for image and video benchmarks — every chart and quality limit uses the mean |
+| `wer`         | Speech benchmarks only: word-error-rate increase vs. the baseline's transcribed output, mean and max. Their primary quality axis |
 | `psnr`        | PSNR (dB) vs. the baseline image, mean and min                                                                                                                            |
 | `ssim`        | SSIM vs. the baseline image, mean                                                                                                                                         |
 | `imageReward` | ImageReward-v1.0 of the recipe's own images, mean (absolute; the baseline has one too)                                                                                  |
@@ -44,7 +45,7 @@ prompts it is scored on.
 
 ```
 data/benchmarks/<model>/<hardware>/
-├── benchmark.json          # protocol shared by every recipe on the page
+├── benchmark.json          # workload (image / video / speech) + protocol shared by every recipe on the page
 ├── recipes/<id>.json       # one file per recipe; id == filename
 └── configs/*               # the reproducible config each recipe points at
 data/prompts/<set>.json     # the public prompt/seed pairs a page was scored on

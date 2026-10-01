@@ -1,10 +1,12 @@
 import { useState, type ReactNode } from "react";
 import {
-  fmtLpips,
+  fmtLatency,
+  fmtLoss,
   hardwareBySlug,
-  lpipsOf,
+  lossOf,
   paretoFrontier,
   speedup,
+  workloadOf,
   type Benchmark,
   type ModelInfo,
 } from "@/data/frontier";
@@ -33,9 +35,10 @@ export function ModelCard({
   const [hardware, setHardware] = useState(benches[0]!.hardware);
   const bench = benches.find((b) => b.hardware === hardware) ?? benches[0]!;
   // quality-first: the frontier read from the baseline towards the fastest recipe
-  const frontier = paretoFrontier(bench.recipes)
+  const frontier = paretoFrontier(bench)
     .filter((r) => r.id !== bench.baseline.id)
     .reverse();
+  const workload = workloadOf(bench);
   return (
     <div className="group relative flex h-full cursor-pointer flex-col rounded-sm border border-border p-4 text-[13px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,box-shadow] hover:border-border-strong hover:bg-surface-alt hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] focus-within:border-primary">
       <div className="flex items-baseline justify-between gap-3">
@@ -53,14 +56,14 @@ export function ModelCard({
         />
       </div>
       <div className="num mt-0.5 text-[12px] text-muted-foreground">
-        baseline {bench.baseline.metrics.latencyS.toFixed(1)}s
+        baseline {fmtLatency(bench, bench.baseline.metrics.latencyS)}
       </div>
 
       {frontier.length ? (
         <table className="num mt-3 w-full border-collapse">
           <thead>
             <tr className="text-[10px] tracking-wider text-muted-foreground uppercase">
-              <th className="pb-1 pr-3 text-left font-medium">LPIPS</th>
+              <th className="pb-1 pr-3 text-left font-medium">{workload.quality.name}</th>
               <th className="pb-1 pr-3 text-right font-medium">Latency</th>
               <th className="pb-1 pr-3 text-right font-medium">Speedup</th>
               <th className="pb-1 text-left font-medium">Recipe</th>
@@ -70,10 +73,10 @@ export function ModelCard({
             {frontier.map((recipe) => (
               <tr key={recipe.id} className="border-t border-border">
                 <td className="py-1.5 pr-3 whitespace-nowrap text-muted-foreground">
-                  {fmtLpips(lpipsOf(recipe))}
+                  {fmtLoss(bench, lossOf(bench, recipe))}
                 </td>
                 <td className="py-1.5 pr-3 text-right whitespace-nowrap font-medium">
-                  {recipe.metrics.latencyS.toFixed(1)}s
+                  {fmtLatency(bench, recipe.metrics.latencyS)}
                 </td>
                 <td className="py-1.5 pr-3 text-right whitespace-nowrap text-muted-foreground">
                   {speedup(bench, recipe).toFixed(1)}×
