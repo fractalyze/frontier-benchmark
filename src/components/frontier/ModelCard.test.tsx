@@ -3,8 +3,8 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 
 import {
   findBenchmark,
-  fmtLpips,
-  lpipsOf,
+  fmtLoss,
+  lossOf,
   modelBySlug,
   paretoFrontier,
   speedup,
@@ -46,11 +46,11 @@ describe("ModelCard", () => {
 
   it("lists the benchmark's Pareto frontier, quality first, exactly as the page's chart", () => {
     render(<ModelCard model={model} benches={[bench]} renderLink={link} />);
-    const expected = paretoFrontier(bench.recipes)
+    const expected = paretoFrontier(bench)
       .filter((r) => r.id !== bench.baseline.id)
       .reverse()
       .map((r) => [
-        fmtLpips(lpipsOf(r)),
+        fmtLoss(bench, lossOf(bench, r)),
         `${r.metrics.latencyS.toFixed(1)}s`,
         `${speedup(bench, r).toFixed(1)}×`,
         r.name,

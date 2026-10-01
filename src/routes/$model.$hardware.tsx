@@ -3,12 +3,14 @@ import { useState } from "react";
 import {
   fastestUnder,
   findBenchmark,
-  fmtLpips,
+  fmtLatency,
+  fmtLoss,
   fmtResolution,
   hardwareBySlug,
-  lpipsOf,
+  lossOf,
   modelBySlug,
   speedup,
+  workloadOf,
 } from "@/data/frontier";
 import { REPO_URL } from "@/data/site";
 import { SiteShell } from "@/components/frontier/SiteShell";
@@ -56,7 +58,8 @@ function BenchmarkPage() {
   const [picked, setPicked] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const best = fastestUnder(bench.recipes, limit);
+  const best = fastestUnder(bench, limit);
+  const quality = workloadOf(bench).quality;
   const selected = bench.recipes.find((r) => r.id === picked) ?? best;
 
   // The chart highlights a recipe; a table row also opens its detail dialog.
@@ -114,22 +117,22 @@ function BenchmarkPage() {
           {selected ? (
             <div className="mt-3 border-l-2 border-primary bg-surface-alt py-3 pr-4 pl-4">
               <div className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-                Fastest within LPIPS ≤ {fmtLpips(limit)}
+                Fastest within {quality.name} ≤ {fmtLoss(bench, limit)}
               </div>
               <div className="mt-1 flex flex-wrap items-baseline gap-x-5 gap-y-1">
                 <span className="text-[20px] font-semibold tracking-tight">{selected.name}</span>
                 <span className="num text-[16px]">
-                  {selected.metrics.latencyS.toFixed(1)}s
+                  {fmtLatency(bench, selected.metrics.latencyS)}
                   <span className="text-muted-foreground"> · </span>
                   {speedup(bench, selected).toFixed(1)}× faster
                   <span className="text-muted-foreground"> · </span>
-                  LPIPS {fmtLpips(lpipsOf(selected))}
+                  {quality.name} {fmtLoss(bench, lossOf(bench, selected))}
                 </span>
               </div>
             </div>
           ) : (
             <p className="mt-3 text-[14px] text-muted-foreground">
-              No measured recipe meets LPIPS ≤ {fmtLpips(limit)}.
+              No measured recipe meets {quality.name} ≤ {fmtLoss(bench, limit)}.
             </p>
           )}
         </div>

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BENCHMARKS, MODELS } from "@/data/frontier";
+import { BENCHMARKS, MODELS, WORKLOAD_SLUGS, WORKLOADS } from "@/data/frontier";
 import { REPO_URL } from "@/data/site";
 import { ModelCard } from "@/components/frontier/ModelCard";
 import { SiteShell } from "@/components/frontier/SiteShell";
@@ -27,9 +27,11 @@ export const Route = createFileRoute("/")({
 });
 
 const METHOD = [
-  "Baseline: the engine's native BF16 run at the page's step count. Every recipe is compared to its images.",
-  "Quality: LPIPS (the chart axis) and PSNR against the baseline image for the same prompt and seed, over a fixed prompt set.",
-  "Speed: seconds per image for a single request, median after warmup.",
+  "Baseline: the engine's native BF16 run at the page's step count. Every recipe is compared to its output.",
+  `Quality: a loss against the baseline output for the same prompt and seed, over a fixed prompt set — ${WORKLOAD_SLUGS.map(
+    (w) => `${WORKLOADS[w].quality.name} for ${w}`,
+  ).join(", ")}.`,
+  "Speed: latency of a single request, median after warmup — seconds per image or clip, milliseconds to first audio for speech.",
   "Verified: re-measured by the maintainers on a private held-out prompt set.",
 ];
 
@@ -40,9 +42,7 @@ const Label = ({ children }: { children: string }) => (
 );
 
 function Index() {
-  const groups = [...new Set(MODELS.map((m) => m.group))].filter((g) =>
-    BENCHMARKS.some((b) => MODELS.find((m) => m.slug === b.model)?.group === g),
-  );
+  const sections = WORKLOAD_SLUGS.filter((w) => BENCHMARKS.some((b) => b.workload === w));
   return (
     <SiteShell>
       <section className="mx-auto max-w-2xl pt-14 text-center text-[15px]">
@@ -58,16 +58,20 @@ function Index() {
           <span className="text-[11px] leading-[1.9] font-medium tracking-wider text-muted-foreground uppercase">
             subject to
           </span>
-          <span>LPIPS(recipe, baseline) ≤ ε</span>
+          <span>loss(recipe, baseline) ≤ ε</span>
         </div>
-        <p className="mt-5 text-muted-foreground">for the quality loss ε you choose.</p>
+        <p className="mt-5 text-muted-foreground">
+          for the quality loss ε you choose — LPIPS for image and video, word-error-rate increase
+          for speech.
+        </p>
       </section>
 
-      {groups.map((g) => (
-        <section key={g} className="mt-10">
-          <Label>{`${g} models`}</Label>
+      {sections.map((w) => (
+        <section key={w} className="mt-10">
+          <Label>{WORKLOADS[w].label}</Label>
+          <p className="num mt-2 text-[12px] text-muted-foreground">{WORKLOADS[w].caption}</p>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {MODELS.filter((m) => m.group === g)
+            {MODELS.filter((m) => m.workload === w)
               .map((m) => ({ m, benches: BENCHMARKS.filter((b) => b.model === m.slug) }))
               .filter(({ benches }) => benches.length)
               .map(({ m, benches }) => (

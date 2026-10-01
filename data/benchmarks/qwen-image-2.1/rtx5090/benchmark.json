@@ -1,6 +1,7 @@
 {
   "model": "qwen-image-2.1",
   "hardware": "rtx5090",
+  "workload": "image",
   "protocol": {
     "version": "v0.5",
     "resolution": "1024x1024",

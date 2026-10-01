@@ -1,5 +1,13 @@
 import { Fragment } from "react";
-import { fmtLpips, lpipsOf, speedup, type Benchmark, type Recipe } from "@/data/frontier";
+import {
+  fmtLatency,
+  fmtLoss,
+  lossOf,
+  speedup,
+  workloadOf,
+  type Benchmark,
+  type Recipe,
+} from "@/data/frontier";
 import { fileUrl, prUrl } from "@/data/site";
 import {
   Dialog,
@@ -77,6 +85,8 @@ function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
   const m = r.metrics;
   const isBaseline = r.id === bench.baseline.id;
   const base = bench.baseline.metrics;
+  const quality = workloadOf(bench).quality;
+  const loss = m[quality.key];
   const run: [string, React.ReactNode][] = [
     [
       "Engine",
@@ -97,13 +107,13 @@ function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
       <dl className="grid grid-cols-3 gap-5">
         <Tile
           label="Latency"
-          value={`${m.latencyS.toFixed(1)}s`}
+          value={fmtLatency(bench, m.latencyS)}
           sub={isBaseline ? "reference" : `${speedup(bench, r).toFixed(1)}× faster than baseline`}
         />
         <Tile
-          label="LPIPS mean"
-          value={fmtLpips(m.lpips?.mean)}
-          sub={isBaseline ? "reference images" : `max ${fmtLpips(m.lpips?.max)} over the set`}
+          label={`${quality.name} mean`}
+          value={fmtLoss(bench, loss?.mean)}
+          sub={isBaseline ? "reference output" : `max ${fmtLoss(bench, loss?.max)} over the set`}
         />
         <Tile
           label="ImageReward"
@@ -240,7 +250,7 @@ export function ResultsTable({
         <thead>
           <tr className="border-b border-border-strong text-left">
             <th className={cn(th, "pl-4 text-right")}>Latency</th>
-            <th className={cn(th, "text-right")}>LPIPS</th>
+            <th className={cn(th, "text-right")}>{workloadOf(bench).quality.name}</th>
             <th className={cn(th, "text-right")}>Speedup</th>
             <th className={th}>Recipe</th>
             <th className={th}>Engine</th>
@@ -250,7 +260,7 @@ export function ResultsTable({
         <tbody>
           {rows.map((r) => {
             const sel = r.id === selectedId;
-            const out = lpipsOf(r) > limit;
+            const out = lossOf(bench, r) > limit;
             return (
               <tr
                 key={r.id}
@@ -267,9 +277,9 @@ export function ResultsTable({
                     sel ? "shadow-[inset_2px_0_0_var(--primary)]" : "",
                   )}
                 >
-                  {r.metrics.latencyS.toFixed(1)}s
+                  {fmtLatency(bench, r.metrics.latencyS)}
                 </td>
-                <td className="num py-2 pr-5 text-right">{fmtLpips(lpipsOf(r))}</td>
+                <td className="num py-2 pr-5 text-right">{fmtLoss(bench, lossOf(bench, r))}</td>
                 <td className="num py-2 pr-5 text-right">{speedup(bench, r).toFixed(1)}×</td>
                 <td className={cn("py-2 pr-5", sel ? "font-semibold" : "font-medium")}>{r.name}</td>
                 <td

@@ -60,7 +60,7 @@ describe("ParetoFigure quality limit", () => {
     expect(marker("fp8-sage2-kernels-dpcache")).toHaveClass("fill-dominated-strong");
     // dominated (Cache-DiT conservative is slower than DPCache K=20 for worse LPIPS): hollow
     expect(marker("cachedit-conservative")).toHaveClass("fill-background", "stroke-dominated-strong");
-    expect(marker("cachedit-conservative")).toHaveAttribute("stroke-dasharray", "2.5 2");
+    expect(marker("cachedit-conservative")).toHaveAttribute("stroke-dasharray", "1.2 1.6");
     expect(marker("dpcache-k20")).not.toHaveAttribute("stroke-dasharray");
     expect(document.querySelector('[data-recipe="cachedit-conservative"]')).toHaveAttribute(
       "data-frontier",
