@@ -7,10 +7,10 @@ Re-measures a recipe on this machine's RTX 5090 and writes the numbers back into
 `data/`. One command per recipe:
 
 ```bash
-/data/a41/frontier-venv/bin/python -m bench.run \
+python -m bench.run \
   --recipe dpcache-k20 \
-  --prompts /data/a41/frontier-heldout/heldout-v1.json --prompt-set heldout-v1 \
-  --runs /data/a41/frontier-runs/heldout-v1
+  --prompts "$BENCH_HELDOUT" --prompt-set heldout-v1 \
+  --runs "$BENCH_RUNS/heldout-v1"
 ```
 
 That renders the baseline first if it has not been rendered into `--runs`, renders
@@ -57,29 +57,41 @@ own (`python -m bench.calibrate --recipe <id> --budgets 12 16 20 ...`).
   prompt and seed (the baseline is `benchmark.json.baselineRecipe`); the baseline's
   own values are `null`.
 - **imageReward**: ImageReward-v1.0 of (prompt, image), absolute, baseline included.
-- **held-out**: `/data/a41/frontier-heldout/heldout-v1.json` is 10 fresh prompts x 2
-  seeds and is never committed. A recipe measured on it is `Verified`.
+- **held-out**: the private corpus (`BENCH_HELDOUT`), 10 fresh prompts x 2 seeds,
+  is never committed. A recipe measured on it is `Verified`.
 
 ## Environment
 
 The engine is the `qi21/showcase` branch of fractalyze/sglang (DPCache and the
-FP8/SageAttention2/fused-kernel stack), checked out at `/data/a41/sglang-showcase`
-and installed editable into `/data/a41/frontier-venv` (torch 2.13+cu130). ImageReward
-needs transformers 4.x, so it lives in `/data/a41/frontier-ir-venv`
-(`IMAGE_REWARD_PYTHON` overrides the path). JIT kernels compile with
-`CUDA_HOME=/data/a41/qwen-image-opt/cuda-home-13` (`BENCH_CUDA_HOME`).
+FP8/SageAttention2/fused-kernel stack), installed editable into the harness venv
+(torch 2.13+cu130). ImageReward needs transformers 4.x, so it lives in a second
+venv named by `IMAGE_REWARD_PYTHON`. JIT kernels compile against a CUDA 13
+toolkit (`BENCH_CUDA_HOME`). Every machine-specific location is an environment
+variable; the defaults in `bench/env.py`, `bench/run.py` and `bench/score.py`
+are the reference machine's.
+
+| variable              | meaning                                                       |
+| --------------------- | ------------------------------------------------------------- |
+| `HF_HOME`             | Hugging Face cache holding the pinned checkpoints             |
+| `BENCH_HELDOUT`       | private held-out corpus (`splits.heldout[]`, never committed) |
+| `BENCH_RUNS`          | root for run directories                                      |
+| `BENCH_CUDA_HOME`     | CUDA toolkit for JIT kernels                                  |
+| `IMAGE_REWARD_PYTHON` | python of the ImageReward venv                                |
+| `BENCH_GPU_LOCKS`     | colon-separated lock directories sibling jobs honour          |
 
 ```bash
-git -C ~/Workspace/sglang-jz worktree add --detach /data/a41/sglang-showcase origin/qi21/showcase
-uv venv /data/a41/frontier-venv --python 3.12
-uv pip install --python /data/a41/frontier-venv/bin/python --prerelease=allow --index-strategy unsafe-best-match \
+SGLANG=$HOME/src/sglang-showcase            # any location
+git clone --branch qi21/showcase --single-branch https://github.com/fractalyze/sglang.git "$SGLANG"
+uv venv .venv --python 3.12 && source .venv/bin/activate
+uv pip install --prerelease=allow --index-strategy unsafe-best-match \
   --extra-index-url https://download.pytorch.org/whl/cu130 torch==2.13.0 torchvision \
-  -e "/data/a41/sglang-showcase/python[diffusion]" lpips scikit-image nvidia-cudnn-frontend pytest \
-  /data/a41/qwen-image-opt/wheels/torch2.13/sageattention-2.2.0-cp312-cp312-linux_x86_64.whl
-uv venv /data/a41/frontier-ir-venv --python 3.12
-uv pip install --python /data/a41/frontier-ir-venv/bin/python --index-strategy unsafe-best-match \
+  -e "$SGLANG/python[diffusion]" lpips scikit-image nvidia-cudnn-frontend pytest \
+  <sageattention-2.2.0 wheel built for sm_120>
+uv venv .venv-ir --python 3.12
+uv pip install --python .venv-ir/bin/python --index-strategy unsafe-best-match \
   --extra-index-url https://download.pytorch.org/whl/cu130 torch==2.13.0 torchvision "transformers<4.50" "huggingface_hub<1" setuptools
-uv pip install --python /data/a41/frontier-ir-venv/bin/python --no-build-isolation image-reward "clip @ git+https://github.com/openai/CLIP.git"
+uv pip install --python .venv-ir/bin/python --no-build-isolation image-reward "clip @ git+https://github.com/openai/CLIP.git"
+export IMAGE_REWARD_PYTHON=$PWD/.venv-ir/bin/python
 ```
 
-Tests: `/data/a41/frontier-venv/bin/python -m pytest` from the repo root (`pytest.ini`).
+Tests: `python -m pytest` from the repo root (`pytest.ini`), harness venv activated.

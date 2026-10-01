@@ -1,8 +1,8 @@
 """Re-measure one recipe end to end: render, score against the baseline, emit.
 
     python -m bench.run --recipe dpcache-k20 \
-        --prompts /data/a41/frontier-heldout/heldout-v1.json --prompt-set heldout-v1 \
-        --runs /data/a41/frontier-runs/heldout-v1
+        --prompts "$BENCH_HELDOUT" --prompt-set heldout-v1 \
+        --runs "$BENCH_RUNS/heldout-v1"
 
 The baseline recipe is rendered first if its run directory has no scores yet.
 Render runs as a subprocess so the recipe's SGLANG_* knobs reach the engine

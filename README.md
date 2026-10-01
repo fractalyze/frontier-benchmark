@@ -48,8 +48,8 @@ npm run lint     # eslint (prettier runs as an eslint rule); npm run format rewr
 npm run build    # production build (TanStack Start + nitro)
 ```
 
-Harness tests: `/data/a41/frontier-venv/bin/python -m pytest` from the repo
-root.
+Harness tests: `python -m pytest` from the repo root with the harness venv
+activated (see `bench/README.md`).
 
 ## Built with
 

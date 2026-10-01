@@ -6,8 +6,8 @@ Writes `<out>/<pair_id>.png`, `rows.jsonl` (one row per request, with the
 contention stamp) and `manifest.json` (stack, resolved kwargs, summaries).
 
     python -m bench.render --model qwen-image-2.1 --hardware rtx5090 \
-        --recipe dpcache-k20 --prompts /data/a41/frontier-heldout/heldout-v1.json \
-        --out /data/a41/frontier-runs/heldout-v1/dpcache-k20
+        --recipe dpcache-k20 --prompts "$BENCH_HELDOUT" \
+        --out "$BENCH_RUNS/heldout-v1/dpcache-k20"
 """
 
 from __future__ import annotations

@@ -14,7 +14,7 @@ its quality key to `RecipeFileSchema.metrics` in `src/data/schema.ts`.
 
 Add the checkpoint to `MODELS`: Hugging Face repo, the pinned snapshot revision
 and the engine's model id. The revision must be the one any DPCache schedule was
-calibrated for. Download it into `$HF_HOME` (`/data/a41/hf-cache`) first. If the
+calibrated for. Download it into `$HF_HOME` first. If the
 model needs a residency other than the two existing `OFFLOAD` entries, add one.
 
 ## 3. Benchmark file
@@ -45,7 +45,7 @@ Follow [adding-a-recipe.md](adding-a-recipe.md) for each configuration.
 ## Checks
 
 ```bash
-/data/a41/frontier-venv/bin/python -m pytest -q
+python -m pytest -q
 npm test && npx eslint . && npm run build
 ```
 

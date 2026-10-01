@@ -1,7 +1,7 @@
 """ImageReward-v1.0 scores for (prompt, png) pairs, run in its own venv.
 
 ImageReward pins transformers 4.x while the engine needs 5.x, so score.py
-runs this file with `IMAGE_REWARD_PYTHON` (default /data/a41/frontier-ir-venv).
+runs this file with `IMAGE_REWARD_PYTHON` (a venv with transformers 4.x; the default in score.py is the reference machine's).
 stdin: JSON list of {"pair_id", "prompt", "png"}; argv[1]: output JSON file
 {pair_id: score}. ImageReward logs to stdout, so the result goes to a file.
 """
