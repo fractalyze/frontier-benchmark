@@ -196,7 +196,16 @@ export function RecipeDialog({
 }) {
   return (
     <Dialog open={recipe !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      <DialogContent
+        className="max-h-[90vh] max-w-2xl overflow-y-auto"
+        // Radix would focus the first tabbable element, the close button, and show its
+        // ring as soon as the dialog opens. Focus the panel itself instead: Escape and
+        // Tab still work from there, and nothing looks pressed.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          (e.currentTarget as HTMLElement).focus({ preventScroll: true });
+        }}
+      >
         {recipe && (
           <>
             <DialogHeader className="pr-6">
