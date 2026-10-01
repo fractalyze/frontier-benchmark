@@ -66,7 +66,9 @@ A recipe's display name is derived from its methods joined with `+` (`DPCache
 K=20`, `FP8 W8A8 + SageAttention2`); the baseline is shown as "Baseline".
 
 Techniques: Step Reduction, Feature Caching, Sparse Attention, Token Pruning,
-Quantization, Kernel Optimization, Compilation, Parallelism.
+Quantization, Kernel Optimization, Compilation, Parallelism (a closed list;
+adding one is described in
+[adding-a-recipe.md](adding-a-recipe.md#extension-points)).
 
 ### metrics
 

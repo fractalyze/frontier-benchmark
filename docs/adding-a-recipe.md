@@ -154,6 +154,24 @@ benchmark page from `npm run dev` with headless Chromium. Commit as
 `feat: …` (no scope), open a PR, merge, then deploy from `main`
 ([deploy.md](deploy.md)).
 
+## Extension points
+
+A recipe JSON needs no code change as long as it uses an existing technique,
+any method name, and a config in one of the three shapes. Three things are
+deliberately closed lists; each is one edit plus one test:
+
+| to add                      | edit                                                                                  | test                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| a ninth technique           | the `TECHNIQUES` array in `src/data/schema.ts`                                        | `npm test` (a recipe using it loads)                                        |
+| a fourth config shape       | an `elif config.get("schema") == "<name>"` branch in `run_spec` (`bench/protocol.py`) | a `run_spec` case in `bench/tests/test_protocol.py`, like the existing ones |
+| an engine other than sglang | `render.py` (how a process loads and serves it) and the `engine` block of the recipe  | a smoke run; `score.py` and `emit.py` are engine-agnostic                   |
+
+`method` is free text, so a new technique is only needed when none of the
+eight describes the mechanism. Techniques stay a closed list so names cannot
+drift between pages ([decisions.md](decisions.md#recipes)). A new quality
+metric or workload is a model-level change: see
+[adding-a-model.md](adding-a-model.md#1-catalogue-the-model-srcdatafrontierts).
+
 ## Done when
 
 - [ ] `configs/<id>.json` and `recipes/<id>.json` exist; `protocol.spec_for` resolves
