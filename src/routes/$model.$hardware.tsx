@@ -111,8 +111,8 @@ function BenchmarkPage() {
 
         <div className="mt-3 border-t border-border pt-4">
           <p className="text-[12px] text-muted-foreground">
-            Slide the quality limit (or drag the dashed line, or use the arrow keys). The fastest
-            recipe within it is selected; recipes above it are greyed out.
+            Drag the dashed line (or focus its grip and use the arrow keys) to set the quality
+            limit. The fastest recipe within it is selected; recipes above it are greyed out.
           </p>
           {selected ? (
             <div className="mt-3 border-l-2 border-primary bg-surface-alt py-3 pr-4 pl-4">
