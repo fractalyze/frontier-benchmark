@@ -174,14 +174,6 @@ export const fastestUnder = (recipes: Recipe[], limit: number) =>
     .filter((x) => lpipsOf(x) <= limit)
     .sort((a, b) => a.metrics.latencyS - b.metrics.latencyS)[0] ?? null;
 
-/** Quality-limit buttons on the benchmark page (the ladder keeps its own coarser default). */
-export const QUALITY_LIMITS = [0.01, 0.03, 0.05, 0.1];
-
-export const ladder = (b: Benchmark, limits: number[] = [0.01, 0.05, 0.1]) =>
-  limits.map((limit) => ({ limit, recipe: fastestUnder(b.recipes, limit) }));
-
 export const fmtLpips = (v: number | null | undefined) =>
   v ? v.toFixed(3).replace(/^0/, "") : "—";
-/** Quality limits are coarse (.01/.05/.10), so two decimals; fmtLpips's three are for measurements. */
-export const fmtLimit = (v: number) => v.toFixed(2).replace(/^0/, "");
 export const fmtResolution = (r: string) => r.replace("x", "×");

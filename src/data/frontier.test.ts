@@ -4,9 +4,7 @@ import {
   BENCHMARKS,
   fastestUnder,
   findBenchmark,
-  fmtLimit,
   fmtLpips,
-  ladder,
   lpipsOf,
   paretoFrontier,
   speedup,
@@ -99,23 +97,6 @@ describe("speedup", () => {
   });
 });
 
-describe("ladder", () => {
-  it("defaults to the 0.01 / 0.05 / 0.1 limits", () => {
-    expect(ladder(bench).map((s) => [s.limit, s.recipe?.id])).toEqual([
-      [0.01, "sglang-native"],
-      [0.05, "dpcache-k20"],
-      [0.1, "dpcache-k12"],
-    ]);
-  });
-
-  it("reports null for a limit nobody meets", () => {
-    expect(ladder(bench, [-1, 0.03])).toEqual([
-      { limit: -1, recipe: null },
-      { limit: 0.03, recipe: byId("dpcache-k20") },
-    ]);
-  });
-});
-
 describe("fmtLpips", () => {
   it("renders null/undefined/0 as an em dash and strips the leading zero otherwise", () => {
     expect(fmtLpips(null)).toBe("—");
@@ -126,10 +107,3 @@ describe("fmtLpips", () => {
   });
 });
 
-describe("fmtLimit", () => {
-  it("renders quality limits with two decimals and no leading zero", () => {
-    expect(fmtLimit(0.01)).toBe(".01");
-    expect(fmtLimit(0.05)).toBe(".05");
-    expect(fmtLimit(0.1)).toBe(".10");
-  });
-});

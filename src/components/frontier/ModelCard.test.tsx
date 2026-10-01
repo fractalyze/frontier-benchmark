@@ -3,9 +3,10 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 
 import {
   findBenchmark,
-  fmtLimit,
-  ladder,
+  fmtLpips,
+  lpipsOf,
   modelBySlug,
+  paretoFrontier,
   speedup,
   type Benchmark,
 } from "@/data/frontier";
@@ -20,11 +21,14 @@ const link = (b: Benchmark, children: React.ReactNode) => (
 );
 
 const rows = () =>
-  screen.getAllByRole("row").map((r) =>
-    within(r)
-      .getAllByRole("cell")
-      .map((c) => c.textContent?.trim()),
-  );
+  screen
+    .queryAllByRole("row")
+    .filter((r) => within(r).queryAllByRole("cell").length > 0)
+    .map((r) =>
+      within(r)
+        .getAllByRole("cell")
+        .map((c) => c.textContent?.trim()),
+    );
 
 describe("ModelCard", () => {
   it("links the title (stretched over the card), shows baseline latency and a hardware select", () => {
@@ -38,22 +42,43 @@ describe("ModelCard", () => {
     expect(select).toHaveClass("z-10");
   });
 
-  it("renders latency, speedup and recipe for each default limit", () => {
+  it("lists the benchmark's Pareto frontier, quality first, exactly as the page's chart", () => {
     render(<ModelCard model={model} benches={[bench]} renderLink={link} />);
-    const expected = ladder(bench).map(({ limit, recipe }) => [
-      `≤ ${fmtLimit(limit)}`,
-      `${recipe!.metrics.latencyS.toFixed(1)}s`,
-      `${speedup(bench, recipe!).toFixed(1)}×`,
-      recipe!.name,
-    ]);
+    const expected = paretoFrontier(bench.recipes)
+      .filter((r) => r.id !== bench.baseline.id)
+      .reverse()
+      .map((r) => [
+        fmtLpips(lpipsOf(r)),
+        `${r.metrics.latencyS.toFixed(1)}s`,
+        `${speedup(bench, r).toFixed(1)}×`,
+        r.name,
+      ]);
     expect(rows()).toEqual(expected);
     // Not tautological: literal values from the measured data.
-    expect(rows()[0]).toEqual(["≤ .01", "13.6s", "1.0×", "Baseline"]);
-    expect(rows()[1]).toEqual(["≤ .05", "7.1s", "1.9×", "DPCache K=20"]);
-    expect(rows()[2]).toEqual(["≤ .10", "4.5s", "3.0×", "DPCache K=12"]);
+    expect(rows()).toEqual([
+      [".011", "7.1s", "1.9×", "DPCache K=20"],
+      [".080", "4.5s", "3.0×", "DPCache K=12"],
+      [
+        ".129",
+        "2.0s",
+        "6.7×",
+        "FP8 W8A8 per-channel + SageAttention2 + fused text-encoder and VAE kernels + DPCache K=12",
+      ],
+    ]);
+    // dominated recipes (slower and no better) stay off the card
+    expect(screen.queryByText("Cache-DiT conservative")).toBeNull();
   });
 
-  it("switches the ladder and links when another hardware is selected", () => {
+  it("shows every FLUX recipe on the frontier even though all exceed LPIPS .10", () => {
+    const flux = findBenchmark("flux-2-klein-4b", "rtx5090")!;
+    render(<ModelCard model={modelBySlug("flux-2-klein-4b")!} benches={[flux]} renderLink={link} />);
+    expect(rows().map((r) => r.slice(0, 3))).toEqual([
+      [".120", "3.1s", "5.8×"],
+      [".193", "2.6s", "6.9×"],
+    ]);
+  });
+
+  it("switches the frontier and links when another hardware is selected", () => {
     const other: Benchmark = {
       ...bench,
       hardware: "h100",
@@ -63,17 +88,19 @@ describe("ModelCard", () => {
     render(<ModelCard model={model} benches={[bench, other]} renderLink={link} />);
     fireEvent.keyDown(screen.getByRole("combobox", { name: "Hardware" }), { key: "ArrowDown" });
     fireEvent.click(screen.getByRole("option", { name: "H100" }));
-    expect(rows()[0]).toEqual(["≤ .01", "13.6s", "1.0×", "Baseline"]);
+    expect(rows()).toEqual([]);
+    expect(screen.getByText(/no recipe faster than the baseline yet/)).toBeInTheDocument();
     expect(screen.getByText("Qwen-Image 2.1").closest("a")).toHaveAttribute(
       "href",
       "/qwen-image-2.1/h100",
     );
   });
 
-  it("renders em dashes when no recipe meets a limit", () => {
-    const empty: Benchmark = { ...bench, recipes: [] };
+  it("renders a note instead of a table when nothing beats the baseline", () => {
+    const empty: Benchmark = { ...bench, recipes: [bench.baseline] };
     render(<ModelCard model={model} benches={[empty]} renderLink={link} />);
-    for (const cells of rows()) expect(cells.slice(1)).toEqual(["—", "—", "—"]);
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByText(/no recipe faster than the baseline yet/)).toBeInTheDocument();
     expect(screen.queryByText(/NaN|undefined/)).toBeNull();
   });
 });
