@@ -32,11 +32,13 @@ const rows = () =>
 
 describe("ModelCard", () => {
   it("links the title (stretched over the card), shows baseline latency and a hardware select", () => {
-    render(<ModelCard model={model} benches={[bench]} renderLink={link} />);
+    const { container } = render(<ModelCard model={model} benches={[bench]} renderLink={link} />);
     const title = screen.getByText("Qwen-Image 2.1");
     expect(title.closest("a")).toHaveAttribute("href", "/qwen-image-2.1/rtx5090");
     expect(title).toHaveClass("after:absolute", "after:inset-0");
     expect(screen.getByText("baseline 13.6s")).toBeInTheDocument();
+    expect(screen.getByText("View benchmark")).toBeInTheDocument();
+    expect(container.firstChild).toHaveClass("cursor-pointer", "group");
     const select = screen.getByRole("combobox", { name: "Hardware" });
     expect(select).toHaveTextContent("RTX 5090");
     expect(select).toHaveClass("z-10");
