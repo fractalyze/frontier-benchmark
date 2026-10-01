@@ -1,6 +1,6 @@
 # Agent notes
 
-Read [README.md](README.md) first and follow its "Read first" table; the docs
+Read [README.md](README.md) first and follow its "Docs" table; the docs
 there are the source of truth. The skill
 `.agents/skills/frontier-benchmark-recipes/SKILL.md` covers adding a recipe or
 a model.
@@ -13,7 +13,8 @@ a model.
 - Checks before a PR: `npm test`, `npx eslint .`, `npm run build`; pytest
   (`python -m pytest -q`, harness venv) when `bench/` changes.
 - UI changes: screenshot the dev server with headless Chromium before shipping;
-  SSR HTML alone hides layout problems.
+  SSR HTML alone hides layout problems. Playwright is not a dependency of this
+  repo: use a global install (or `npx playwright`) and its own browser cache.
 - Data: a recipe with placeholder metrics fails `npm test` and must never be
   committed or deployed. The loader names the bad file.
 - GPU: the harness takes a lock (`BENCH_GPU_LOCKS`) and refuses when it is

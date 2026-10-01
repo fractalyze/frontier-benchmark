@@ -62,14 +62,14 @@ class MemorySampler:
 class ClockSampler:
     """SM clock, power and temperature sampled *continuously under load*.
 
-    CLAUDE.md: "the clock must be sampled continuously under load -- a single
-    `nvidia-smi` stamp between kernels read 1687 MHz against a real 2670." The
-    per-rep stamps the harnesses also take are exactly those discredited
-    between-kernel reads, and `bench/dmon.py` runs `-s ut`, which has no clock
-    column at all -- so without this a row carries no usable clock.
+    The clock must be sampled continuously under load: a single `nvidia-smi`
+    stamp taken between kernels read 1687 MHz against a real 2670 (measured in
+    the qwen-image-opt harness this module comes from). The per-rep stamps the
+    harness also takes are exactly those discredited between-kernel reads, so
+    without this sampler a row carries no usable clock.
 
-    It also answers the comparability question DECISIONS.md section 7 raises: a
-    6 s arm heats the card less per rep than a 13.7 s one, so its reps can still
+    It also answers a comparability question between recipes of different
+    length: a 6 s arm heats the card less per rep than a 13.7 s one, so its reps can still
     be on a thermal ramp when the arm they are divided against was at steady
     state.
 

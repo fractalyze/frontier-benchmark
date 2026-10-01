@@ -1,5 +1,8 @@
 # Data model
 
+Scope: every field in `data/`, what the loader enforces, and the values the UI
+derives. Status: current · updated 2026-10-01.
+
 Everything the site shows comes from JSON files under `data/`. The schema is
 `src/data/schema.ts` (zod); the loader `src/data/frontier.ts` adds the
 cross-file rules. A bad file fails `npm test` and `npm run build` with the
@@ -39,7 +42,9 @@ latency label and format. Components never hard-code a metric name.
 | speech   | `wer`       | ΔWER         | milliseconds to first audio |
 
 Latency is always stored in seconds (`latencyS`); the workload decides how it is
-displayed.
+displayed. The video and speech rows are provisional: no page uses them yet, and
+the first speech page will revisit them (see
+[adding-a-model.md](adding-a-model.md#before-you-start)).
 
 ## recipes/<id>.json
 
@@ -103,5 +108,5 @@ as "—"; it still has `latencyS`, `peakVramGb` and `imageReward`.
   improves on every faster recipe; ends at the baseline. The chart's line and
   the main-page cards show exactly this set.
 - `fastestUnder(bench, ε)`: the lowest-latency recipe with loss ≤ ε; what the
-  draggable limit on the benchmark page selects.
+  quality-limit grip on the benchmark page selects.
 - `speedup` = baseline latency / recipe latency.

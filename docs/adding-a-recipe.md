@@ -1,93 +1,147 @@
 # Adding a recipe
 
+Scope: how one optimization recipe gets onto an existing benchmark page.
+Status: current · updated 2026-10-01.
+
 A recipe is one engine configuration measured against the page's baseline.
-Everything below is what `.agents/skills/frontier-benchmark-recipes` walks an
-agent through; this page is the reference.
+Field meanings are in [data-model.md](data-model.md); this page is the
+procedure. Start a new model × GPU page with [adding-a-model.md](adding-a-model.md).
+
+## Who does what
+
+| step | contributor (pull request)          | maintainer (reference machine)        |
+| ---- | ----------------------------------- | ------------------------------------- |
+| 1–2  | writes the config and recipe files  | same                                  |
+| 3    | optional: numbers on the public set | smoke test, held-out run (`Verified`) |
+| 4–5  | —                                   | publish decision, checks, deploy      |
+
+A contributor's PR with placeholder metrics fails `npm test` with
+`non-baseline recipe is missing lpips`. That is expected: the maintainers
+measure it, fill the numbers and merge it as `Verified`. Contributors who did
+measure on the same GPU put their public-set numbers in with
+`status: "Submitted"`, `measuredOn: "public"`.
 
 ## 1. Describe the configuration
 
-Create `data/benchmarks/<model>/<hardware>/configs/<id>.json`. The harness
-understands three shapes (`bench/protocol.py`):
+Create `data/benchmarks/<model>/<hardware>/configs/<id>.json`. Start from a
+neighbour; `fp8-sage2.json` exists on every page. Three shapes are understood
+(`bench/protocol.py` turns them into engine kwargs, process env and request
+fields merged over the page's protocol):
 
-- **`sglang-runtime`** — the common case:
-  ```json
-  {
-    "schema": "sglang-runtime",
-    "note": "one sentence for humans",
-    "server": {
-      "quantization": "fp8",
-      "component_attention_backends": { "transformer": "sage_attn" }
-    },
-    "env": { "SGLANG_ENABLE_…": "1" },
-    "request": {},
-    "dpcache_schedule": "data/benchmarks/<model>/<hardware>/configs/dpcache-<id>/K16.json"
-  }
-  ```
-  `server` kwargs, `env` and `request` fields are merged over the protocol's
-  baseline. `dpcache_schedule` (optional) stacks a DPCache schedule on top.
-- **a DPCache schedule file** (`full_steps`, `num_full_steps`, `request`):
-  served through `dpcache_schedule_dir`, requested as `dpcache_budget`.
-- **`sglang-cache-dit-params`**: Cache-DiT with its params.
+**`sglang-runtime`** — the common case.
+
+```json
+{
+  "schema": "sglang-runtime",
+  "note": "one sentence for humans",
+  "server": {
+    "quantization": "fp8",
+    "component_attention_backends": { "transformer": "sage_attn" }
+  },
+  "env": {},
+  "request": {},
+  "dpcache_schedule": "data/benchmarks/<model>/<hardware>/configs/dpcache-<id>/K16.json"
+}
+```
+
+`dpcache_schedule` is optional and stacks a DPCache schedule on this runtime.
+
+**A DPCache schedule file** (`full_steps`, `num_full_steps`, `request`),
+written by `bench.calibrate`; the harness serves it through
+`dpcache_schedule_dir` and requests it as `dpcache_budget`.
+
+**`sglang-cache-dit-params`** — Cache-DiT with its parameters.
 
 A DPCache schedule is bound to the attention backend and checkpoint it was
-calibrated for. A runtime that changes either needs its own:
-`python -m bench.calibrate --recipe <id> --budgets 12 16 20 --prompts … --capture-dir …`.
+calibrated for. A runtime that changes either needs its own schedule:
+
+```bash
+python -m bench.calibrate --recipe <id> --budgets 12 16 20 --prompts "$BENCH_HELDOUT" --capture-dir "$BENCH_RUNS/calib-<id>"
+```
+
+(`bench.calibrate` builds its spec without the schedule it is about to create,
+so pass any server kwargs the runtime needs as `--component-quantizations.<component>=<method>`.)
 
 ## 2. Write the recipe file
 
-Copy a neighbour in `recipes/`, then set:
+Create `data/benchmarks/<model>/<hardware>/recipes/<id>.json`. The `id` is
+the filename. This is the complete placeholder form; everything under
+`metrics` is overwritten by the harness:
 
-- `id` = filename; `engine` with the exact commit; `optimization` as
-  `{technique, method}` pairs (the name is derived from the methods);
-- `configuration` notes; `configPath` to the file from step 1;
-- `metrics` as placeholders (`latencyS: 1`, everything else `null`),
-  `status: "Experimental"`, `measuredOn: "public"`, `date` today,
-  `sourceUrl` if the numbers were reported somewhere, `pr: null`.
-
-A placeholder recipe fails `npm test` ("non-baseline recipe is missing lpips")
-until it is measured. Never commit or deploy one. Check the spec resolves:
-
-```bash
-python -c "from bench import protocol; print(protocol.spec_for('<model>','<hardware>','<id>'))"
+```json
+{
+  "id": "<id>",
+  "engine": {
+    "name": "sglang-diffusion",
+    "version": "<exact commit>",
+    "url": "https://github.com/fractalyze/sglang/tree/qi21/showcase"
+  },
+  "optimization": [
+    { "technique": "Quantization", "method": "FP8 W8A8" },
+    { "technique": "Quantization", "method": "SageAttention2" }
+  ],
+  "configuration": ["what a reader needs to reproduce the run, one item per line"],
+  "configPath": "data/benchmarks/<model>/<hardware>/configs/<id>.json",
+  "metrics": {
+    "latencyS": 1,
+    "peakVramGb": null,
+    "lpips": null,
+    "psnr": null,
+    "ssim": null,
+    "imageReward": null
+  },
+  "status": "Experimental",
+  "measuredOn": "public",
+  "date": "<YYYY-MM-DD>",
+  "sourceUrl": null,
+  "pr": null
+}
 ```
 
-## 3. Smoke, then measure (maintainers only)
+`technique` must be one of the eight in [data-model.md](data-model.md#recipesidjson);
+the display name is derived from the methods (`FP8 W8A8 + SageAttention2`), so
+there is no name field. Check that the harness resolves the recipe before
+touching a GPU:
+
+```bash
+python -c "from bench import protocol; print(protocol.spec_for('<model>', '<hardware>', '<id>'))"
+```
+
+## 3. Smoke, then measure (maintainers)
 
 The harness needs the reference GPU, the engine checkout and the private
-held-out corpus, so only maintainers run it. Submitters stop after step 2 (see
-"Submitting from outside"). Paths come from the environment:
-`BENCH_HELDOUT` (held-out corpus, never in the repo), `BENCH_RUNS` (run root),
-plus the harness knobs in `bench/README.md`.
+held-out corpus; environment variables name every machine-specific location
+(table in [bench/README.md](../bench/README.md#environment)).
 
 ```bash
-# from the repo root, with the harness venv activated
-PY=python
-# 2 pairs, 2 warmups, no emit — proves the config loads and runs
-python -m bench.run --model <model> --recipe <id> --prompts $BENCH_HELDOUT \
-  --prompt-set smoke --runs $BENCH_RUNS/<model>-smoke --warmups 2 --limit 2 --no-emit --no-image-reward
-# full held-out run; renders the baseline first if missing, scores, writes the recipe file
-python -m bench.run --model <model> --recipe <id> --prompts $BENCH_HELDOUT \
-  --prompt-set heldout-v1 --runs $BENCH_RUNS/<model>/heldout-v1
+# repo root, harness venv activated, Node 22 selected
+# smoke: 2 pairs, 2 warmups, no emit — proves the config loads and runs
+python -m bench.run --model <model> --recipe <id> --prompts "$BENCH_HELDOUT" \
+  --prompt-set smoke --runs "$BENCH_RUNS/<model>-smoke" --warmups 2 --limit 2 --no-emit --no-image-reward
+# full held-out run: renders the baseline first if missing, scores, rewrites recipes/<id>.json as Verified
+python -m bench.run --model <model> --recipe <id> --prompts "$BENCH_HELDOUT" \
+  --prompt-set heldout-v1 --runs "$BENCH_RUNS/<model>/heldout-v1"
 ```
 
-The run refuses to start while a GPU lock directory (`BENCH_GPU_LOCKS`, see
-`bench/env.py`) is held, waits for a quiet GPU, and marks a run
-DIRTY if a foreign process overlapped it (then `emit` refuses). Sibling sessions
-re-take the lock within seconds, so queue long jobs in a script that polls
-every 2 s and retries on "refusing to measure". Use `pgrep`/`pkill` patterns
-that cannot match your own shell (`pattern[.]sh`).
+The run takes the GPU lock (`BENCH_GPU_LOCKS`) and refuses to start while
+another holder has it; sibling sessions re-take the lock within seconds, so
+queue long jobs in a background script that polls every 2 s and retries on
+`refusing to measure`. A foreign process overlapping a run marks it DIRTY and
+`emit` refuses it. To re-emit a finished run later:
 
-`bench.emit` can re-emit a finished run later:
-`python -m bench.emit --model <model> --hardware <hw> --recipe <id> --run <runs>/<id> --prompt-set heldout-v1`.
+```bash
+python -m bench.emit --model <model> --hardware <hardware> --recipe <id> --run "$BENCH_RUNS/<model>/heldout-v1/<id>" --prompt-set heldout-v1
+```
 
 ## 4. Decide whether to publish
 
-A recipe belongs on the page if it is a real point: on the Pareto frontier, or
-close enough to inform a choice. A recipe dominated on both axes by a published
-one (slower and no better loss) is not published; keep its run directory and
-note it in the PR.
+Publish a recipe only if it is a real point: on the Pareto frontier, or close
+enough to inform a choice. A recipe that a published one beats on both axes
+(slower and no better loss) is not published: delete its placeholder files,
+keep the run directory, and say so in the PR
+([decisions.md](decisions.md#recipes)).
 
-## 5. Checks, screenshots, PR
+## 5. Checks, screenshot, PR, deploy
 
 ```bash
 source ~/.nvm/nvm.sh && nvm use 22
@@ -95,15 +149,15 @@ python -m pytest -q
 npm test && npx eslint . && npm run build
 ```
 
-Screenshot the benchmark page with headless Chromium (Playwright) against
-`npx vite dev`. Commit as `feat: …` (no scope in the title), open a
-PR, merge, then deploy (see [deploy.md](deploy.md)).
+Update the recipe count in `src/data/frontier.test.ts`. Screenshot the
+benchmark page from `npm run dev` with headless Chromium. Commit as
+`feat: …` (no scope), open a PR, merge, then deploy from `main`
+([deploy.md](deploy.md)).
 
-## Submitting from outside
+## Done when
 
-Open a pull request with steps 1–2. If you measured on the same GPU, put your
-numbers on the public set in the recipe (`status: "Submitted"`,
-`measuredOn: "public"`); otherwise leave the placeholders and say so. Either
-way the maintainers run the recipe on the reference machine, write the
-held-out numbers and merge it as `Verified`. (A placeholder recipe fails the
-tests until then, which is expected for a submission.)
+- [ ] `configs/<id>.json` and `recipes/<id>.json` exist; `protocol.spec_for` resolves
+- [ ] recipe is `Verified` on the held-out set (or `Submitted` on the public set from outside)
+- [ ] no placeholder metrics anywhere under `data/`
+- [ ] pytest, `npm test`, `npx eslint .`, `npm run build` green; page screenshotted
+- [ ] merged, deployed, and the page shows the new point

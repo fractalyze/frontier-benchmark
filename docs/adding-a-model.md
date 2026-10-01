@@ -1,53 +1,110 @@
-# Adding a model × hardware benchmark
+# Adding a model × hardware page
 
-A benchmark page is one model on one GPU with its own protocol and baseline.
-Five places change; the loader and tests catch a missing one.
+Scope: how a new benchmark page (one model on one GPU) is created end to end.
+Status: current · updated 2026-10-01.
 
-## 1. Catalogue (`src/data/frontier.ts`)
+A page has its own protocol, its own baseline and its own recipes. Five
+places change, in the order below; the loader and the tests name whatever is
+missing. The FLUX.2 klein page
+(`data/benchmarks/flux-2-klein-4b/rtx5090/`) is the smallest complete example
+and the best template to copy.
 
-Add the model to `MODELS` with its `workload` (`image`, `video`, `speech`), and
-the GPU to `HARDWARE` if new. If the workload is new, add an entry to
-`WORKLOADS` (label, caption, quality key/name/format, latency axis/format) and
-its quality key to `RecipeFileSchema.metrics` in `src/data/schema.ts`.
+## Before you start
 
-## 2. Harness registry (`bench/protocol.py`)
+- The checkpoint is downloaded under `$HF_HOME` and you know the exact
+  snapshot revision you will pin.
+- The engine (`fractalyze/sglang`, branch `qi21/showcase`) can run the model.
+  For a workload the harness has never measured (video, speech) the harness
+  needs a new renderer and scorer first; `bench/render.py` and
+  `bench/score.py` are image-only. Plan that as its own PR.
 
-Add the checkpoint to `MODELS`: Hugging Face repo, the pinned snapshot revision
-and the engine's model id. The revision must be the one any DPCache schedule was
-calibrated for. Download it into `$HF_HOME` first. If the
-model needs a residency other than the two existing `OFFLOAD` entries, add one.
+## 1. Catalogue the model (`src/data/frontier.ts`)
 
-## 3. Benchmark file
+Add the model to `MODELS` with its slug, display name and `workload`
+(`image`, `video`, `speech`). Add the GPU to `HARDWARE` if it is new. A model
+is hidden on the main page until a benchmark exists for it.
 
-`data/benchmarks/<model>/<hardware>/benchmark.json` with `workload`, the
-protocol (resolution, batch, steps, precision, guidance, attention backend,
-offload mode, protocol version starting at `v0.1`), both prompt sets and
-`baselineRecipe`. The public set must be a file under `data/prompts/`; reuse an
-existing corpus if the prompts are model-agnostic.
+If the workload is new, add it to `WORKLOADS` (section label, caption, quality
+key/name/method/format, latency axis/format) and add its quality key to the
+recipe schema in `src/data/schema.ts`. The UI reads every label from
+`WORKLOADS`; nothing else hard-codes a metric name.
 
-## 4. Baseline recipe
+## 2. Register the checkpoint (`bench/protocol.py`)
 
-`recipes/<baseline>.json` with `optimization: []`, `configPath: null`, the
-engine, and placeholder metrics. Measure it first; every other recipe is scored
-against its outputs.
+```python
+MODELS["<model>"] = Model("<hf repo>", "<pinned snapshot revision>", "<engine model id>")
+```
 
-## 5. Recipes
+The revision must be the one any DPCache schedule is calibrated for. If the
+model needs a GPU residency other than the existing `OFFLOAD` entries
+(`DiT layerwise`, `text encoder layerwise`, `none`), add one.
 
-Follow [adding-a-recipe.md](adding-a-recipe.md) for each configuration.
+## 3. Write `benchmark.json`
+
+`data/benchmarks/<model>/<hardware>/benchmark.json`. Copy the FLUX one and
+change the values; the directory must be `<model>/<hardware>` exactly.
+
+```json
+{
+  "model": "<model>",
+  "hardware": "<hardware>",
+  "workload": "image",
+  "protocol": {
+    "version": "v0.1",
+    "resolution": "1024x1024",
+    "batch": 1,
+    "steps": 50,
+    "precision": "BF16",
+    "guidance": 4.0,
+    "attention": "torch_sdpa",
+    "offload": "none"
+  },
+  "promptSets": {
+    "public": {
+      "name": "comparator-v1",
+      "count": 20,
+      "path": "data/prompts/qwen-image-2.1-comparator-v1.json"
+    },
+    "held-out": null
+  },
+  "timing": "filled in by the harness",
+  "baselineRecipe": "sglang-native"
+}
+```
+
+The public prompt set must be a file under `data/prompts/`; reuse an existing
+corpus when the prompts are model-agnostic. `held-out` becomes
+`{name, count}` after the first held-out run. The protocol version starts at
+`v0.1` and bumps whenever the protocol changes.
+
+## 4. Write the baseline recipe
+
+`recipes/<baselineRecipe>.json` with `optimization: []`, `configPath: null`,
+the engine commit and placeholder metrics (the shape is in
+[adding-a-recipe.md](adding-a-recipe.md#2-write-the-recipe-file)). Measure it
+first: every other recipe is scored against its outputs.
+
+```bash
+python -m bench.run --model <model> --hardware <hardware> --recipe <baselineRecipe> \
+  --prompts "$BENCH_HELDOUT" --prompt-set heldout-v1 --runs "$BENCH_RUNS/<model>/heldout-v1"
+```
+
+## 5. Add recipes
+
+One at a time, following [adding-a-recipe.md](adding-a-recipe.md). A page
+with only a baseline renders but shows no frontier.
 
 ## Tests to touch
 
-- `src/data/frontier.test.ts`: the list of loaded benchmarks and a
-  recipe-count test for the new page.
+- `src/data/frontier.test.ts`: the list of loaded `model/hardware` pairs and
+  a recipe-count test for the new page.
 - `bench/tests/test_protocol.py`: a spec test for the new model's baseline
   (model id, pinned revision, offload).
 
-## Checks
+## Done when
 
-```bash
-python -m pytest -q
-npm test && npx eslint . && npm run build
-```
-
-Screenshot the main page (a new card appears under its workload section) and
-the new benchmark page before opening the PR.
+- [ ] `MODELS` (both registries), `benchmark.json`, baseline and recipes exist and load
+- [ ] baseline and every recipe are `Verified` on the held-out set
+- [ ] `python -m pytest -q`, `npm test`, `npx eslint .`, `npm run build` green
+- [ ] main page (new card under its workload section) and the new page screenshotted
+- [ ] merged and deployed ([deploy.md](deploy.md))
