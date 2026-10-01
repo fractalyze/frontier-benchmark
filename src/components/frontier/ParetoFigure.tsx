@@ -171,6 +171,8 @@ export function ParetoFigure({
           return (
             <g
               key={r.id}
+              data-recipe={r.id}
+              data-frontier={onF}
               className="cursor-pointer"
               onMouseEnter={() => setHover(r)}
               onMouseLeave={() => setHover(null)}
@@ -178,17 +180,20 @@ export function ParetoFigure({
             >
               <circle cx={cx} cy={cy} r={14} fill="transparent" />
               {sel && <circle cx={cx} cy={cy} r={11} className="fill-frontier/12" />}
-              {/* above the limit: hollow, so it stays readable but reads as "not qualifying" */}
+              {/* frontier points are solid (blue within the limit, grey above it);
+                  dominated recipes are hollow rings so the frontier reads at a glance */}
               <circle
                 cx={cx}
                 cy={cy}
-                r={sel ? 6.5 : onF ? 4.5 : 4}
+                r={sel ? 6.5 : onF ? 4.5 : 3.5}
                 className={cn(
-                  out && !sel
-                    ? "fill-background stroke-dominated-strong"
-                    : onF || sel
-                      ? "fill-frontier stroke-background"
-                      : "fill-dominated stroke-background",
+                  sel || (onF && !out)
+                    ? "fill-frontier stroke-background"
+                    : onF
+                      ? "fill-dominated-strong stroke-background"
+                      : out
+                        ? "fill-background stroke-dominated"
+                        : "fill-background stroke-dominated-strong",
                 )}
                 strokeWidth={1.5}
               />
