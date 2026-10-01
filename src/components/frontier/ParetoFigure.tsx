@@ -18,13 +18,16 @@ const layout = (width: number) => {
     W: Math.max(320, width),
     H: narrow ? 420 : 500,
     PAD: { l: narrow ? 60 : 64, r: narrow ? 16 : 24, t: 18, b: narrow ? 46 : 52 },
-    /** the in-chart value tag needs room; on a phone the slider below shows the value */
+    /** the in-chart value tag needs room; on a phone the card below shows the value */
     showTag: !narrow,
   };
 };
 /** Arrow keys move the requirement line by this much; a drag is continuous (0.001). */
 export const LIMIT_STEP = 0.005;
 const LIMIT_MIN = 0.001;
+/** Left/right arrow keys slide the grip along the line by this fraction of its length. */
+const GRIP_STEP = 0.05;
+const GRIP_W = 30;
 
 const clampTo = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 const round3 = (v: number) => +v.toFixed(3);
@@ -55,8 +58,10 @@ export function ParetoFigure({
   const recipes = bench.recipes;
   const svgRef = useRef<SVGSVGElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<Recipe | null>(null);
+  /** Where the grip sits along the requirement line, 0..1; it only marks a handle,
+      so it is free to move left or right out of the way of the points. */
+  const [gripFrac, setGripFrac] = useState(0.5);
   const [width, setWidth] = useState(1180);
   useEffect(() => {
     const el = wrapRef.current;
@@ -91,24 +96,35 @@ export function ParetoFigure({
   const limitMax = round3(yMax - LIMIT_STEP);
   const clampLimit = (v: number) => clampTo(round3(v), LIMIT_MIN, limitMax);
 
-  const limitFromPointer = (e: React.PointerEvent) => {
+  /** Pointer position in SVG user units; null when the SVG is not laid out (tests). */
+  const pointerInSvg = (e: React.PointerEvent) => {
     const svg = svgRef.current;
     const ctm = svg?.getScreenCTM();
-    if (!svg || !ctm) return limit;
+    if (!svg || !ctm) return null;
     const pt = svg.createSVGPoint();
     pt.x = e.clientX;
     pt.y = e.clientY;
-    return clampLimit(fromY(pt.matrixTransform(ctm.inverse()).y));
+    return pt.matrixTransform(ctm.inverse());
+  };
+  const limitFromPointer = (e: React.PointerEvent) => {
+    const pt = pointerInSvg(e);
+    return pt ? clampLimit(fromY(pt.y)) : limit;
   };
   const nudge = (delta: number) => onLimitChange(clampLimit(limit + delta));
   const ly = y(limit);
   const tag = `${workload.quality.name} ≤ ${fmtLoss(bench, limit)}`;
-  /** Horizontal slider position, 0..1 over the allowed limit range. */
-  const frac = (limit - LIMIT_MIN) / (limitMax - LIMIT_MIN);
-  const limitFromTrack = (clientX: number) => {
-    const r = trackRef.current?.getBoundingClientRect();
-    if (!r || r.width === 0) return limit;
-    return clampLimit(LIMIT_MIN + clampTo((clientX - r.left) / r.width, 0, 1) * (limitMax - LIMIT_MIN));
+  /** The dashed line runs from the y axis to the tag (or the plot edge); the grip stays on it. */
+  const lineEnd = showTag ? W - PAD.r - 132 : W - PAD.r;
+  const gripMin = PAD.l + GRIP_W / 2;
+  const gripMax = lineEnd - GRIP_W / 2;
+  const gripX = gripMin + gripFrac * (gripMax - gripMin);
+  const moveGrip = (frac: number) => setGripFrac(clampTo(frac, 0, 1));
+  /** Dragging the grip sets the limit from the pointer's height and slides the grip to its x. */
+  const dragGrip = (e: React.PointerEvent) => {
+    const pt = pointerInSvg(e);
+    if (!pt) return;
+    onLimitChange(clampLimit(fromY(pt.y)));
+    moveGrip((pt.x - gripMin) / (gripMax - gripMin));
   };
 
   return (
@@ -212,15 +228,15 @@ export function ParetoFigure({
             >
               <circle cx={cx} cy={cy} r={14} fill="transparent" />
               {sel && <circle cx={cx} cy={cy} r={11} className="fill-frontier/12" />}
-              {/* frontier points: blue within the limit, dark grey above it;
-                  dominated recipes: small light-grey dots, fainter above the limit */}
+              {/* frontier points: solid, blue within the limit, grey above it;
+                  dominated recipes: hollow grey rings, fainter above the limit */}
               <circle
                 cx={cx}
                 cy={cy}
                 r={sel ? 6.5 : onF ? 4.5 : 3.5}
                 className={cn(
-                  "stroke-background",
-                  sel || (onF && !out) ? "fill-frontier" : "fill-dominated-strong",
+                  sel || onF ? "stroke-background" : "fill-background stroke-dominated-strong",
+                  sel || (onF && !out) ? "fill-frontier" : onF && "fill-dominated-strong",
                   !onF && out && !sel && "opacity-50",
                 )}
                 strokeWidth={1.5}
@@ -242,7 +258,8 @@ export function ParetoFigure({
           );
         })}
 
-        {/* the quality requirement: drag the line, or focus it and use the arrow keys */}
+        {/* the quality requirement: drag the line up or down, or drag its grip
+            (which also slides left and right), or focus the grip and use the arrow keys */}
         <g
           transform={`translate(0 ${ly})`}
           className="cursor-ns-resize"
@@ -263,13 +280,53 @@ export function ParetoFigure({
           />
           <line
             x1={PAD.l}
-            x2={showTag ? W - PAD.r - 132 : W - PAD.r}
+            x2={lineEnd}
             y1={0}
             y2={0}
             className="stroke-foreground"
             strokeWidth={1.3}
             strokeDasharray="5 4"
           />
+          <g
+            data-testid="limit-grip"
+            role="slider"
+            tabIndex={0}
+            aria-label={`Quality limit: maximum acceptable ${workload.quality.name}`}
+            aria-orientation="vertical"
+            aria-valuemin={LIMIT_MIN}
+            aria-valuemax={limitMax}
+            aria-valuenow={limit}
+            aria-valuetext={tag}
+            transform={`translate(${gripX} 0)`}
+            className="cursor-move outline-none [&:focus-visible>rect]:stroke-ring [&:focus-visible>rect]:stroke-2"
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.currentTarget.setPointerCapture(e.pointerId);
+              dragGrip(e);
+            }}
+            onPointerMove={(e) => {
+              if (e.currentTarget.hasPointerCapture(e.pointerId)) dragGrip(e);
+            }}
+            onKeyDown={(e) => {
+              const step = e.shiftKey ? LIMIT_STEP * 4 : LIMIT_STEP;
+              if (e.key === "ArrowUp") nudge(step);
+              else if (e.key === "ArrowDown") nudge(-step);
+              else if (e.key === "ArrowRight") moveGrip(gripFrac + GRIP_STEP);
+              else if (e.key === "ArrowLeft") moveGrip(gripFrac - GRIP_STEP);
+              else return;
+              e.preventDefault();
+            }}
+          >
+            <rect
+              x={-GRIP_W / 2}
+              y={-6}
+              width={GRIP_W}
+              height={12}
+              rx={6}
+              className="fill-background stroke-foreground"
+              strokeWidth={1.3}
+            />
+          </g>
           {showTag && (
             <>
               <rect
@@ -293,50 +350,6 @@ export function ParetoFigure({
         </g>
       </svg>
 
-      {/* the quality limit as a horizontal slider: the white grip moves left and right,
-          the dashed line above follows */}
-      <div className="mt-2 flex items-center gap-3 text-[12px]">
-        <span className="shrink-0 font-medium tracking-wider text-muted-foreground uppercase">
-          Quality limit
-        </span>
-        <div
-          ref={trackRef}
-          role="slider"
-          tabIndex={0}
-          aria-label={`Quality limit: maximum acceptable ${workload.quality.name}`}
-          aria-orientation="horizontal"
-          aria-valuemin={LIMIT_MIN}
-          aria-valuemax={limitMax}
-          aria-valuenow={limit}
-          aria-valuetext={tag}
-          className="relative h-6 flex-1 cursor-ew-resize touch-none outline-none select-none focus-visible:ring-2 focus-visible:ring-ring"
-          onPointerDown={(e) => {
-            e.currentTarget.setPointerCapture(e.pointerId);
-            onLimitChange(limitFromTrack(e.clientX));
-          }}
-          onPointerMove={(e) => {
-            if (e.currentTarget.hasPointerCapture(e.pointerId)) onLimitChange(limitFromTrack(e.clientX));
-          }}
-          onKeyDown={(e) => {
-            const step = e.shiftKey ? LIMIT_STEP * 4 : LIMIT_STEP;
-            if (e.key === "ArrowUp" || e.key === "ArrowRight") nudge(step);
-            else if (e.key === "ArrowDown" || e.key === "ArrowLeft") nudge(-step);
-            else return;
-            e.preventDefault();
-          }}
-        >
-          <div className="absolute top-1/2 right-0 left-0 h-px -translate-y-1/2 border-t border-dashed border-foreground" />
-          <div
-            data-testid="limit-grip"
-            className="absolute top-1/2 h-3 w-[30px] -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.3px] border-foreground bg-background"
-            style={{ left: `${frac * 100}%` }}
-          />
-        </div>
-        <span className="num shrink-0 rounded-full bg-foreground px-2.5 py-0.5 font-medium text-background">
-          {tag}
-        </span>
-      </div>
-
       {hover && (
         <div
           className="pointer-events-none absolute z-20 rounded-sm border border-border bg-popover px-2.5 py-2 text-[12px]"
@@ -349,8 +362,7 @@ export function ParetoFigure({
           <div className="max-w-64 font-medium">{hover.name}</div>
           <div className="num mt-1 text-muted-foreground">
             {fmtLatency(bench, hover.metrics.latencyS)} · {workload.quality.name}{" "}
-            {fmtLoss(bench, loss(hover))} ·{" "}
-            {speedup(bench, hover).toFixed(1)}× faster
+            {fmtLoss(bench, loss(hover))} · {speedup(bench, hover).toFixed(1)}× faster
           </div>
         </div>
       )}

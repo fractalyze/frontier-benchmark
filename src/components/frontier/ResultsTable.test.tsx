@@ -120,6 +120,13 @@ describe("ResultsTable", () => {
     expect(screen.getByText("none")).toBeInTheDocument();
   });
 
+  it("opens the detail dialog without landing focus on its close button", () => {
+    renderTable({ openId: "dpcache-k20" });
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Close" })).not.toHaveFocus();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
   it("renders no dialog when nothing is open", () => {
     renderTable();
     expect(screen.queryByRole("dialog")).toBeNull();

@@ -165,7 +165,10 @@ export function buildBenchmarks(files: Record<string, unknown>): Benchmark[] {
     const model = MODELS.find((x) => x.slug === bench.model);
     if (!model) throw err(g.bench, `unknown model "${bench.model}"`);
     if (model.workload !== bench.workload)
-      throw err(g.bench, `workload "${bench.workload}" but ${bench.model} is a ${model.workload} model`);
+      throw err(
+        g.bench,
+        `workload "${bench.workload}" but ${bench.model} is a ${model.workload} model`,
+      );
     const quality = WORKLOADS[bench.workload].quality.key;
     if (!HARDWARE.some((x) => x.slug === bench.hardware))
       throw err(g.bench, `unknown hardware "${bench.hardware}"`);
@@ -229,7 +232,8 @@ export const hardwareBySlug = (s: string) => HARDWARE.find((h) => h.slug === s);
 export const workloadOf = (b: Benchmark) => WORKLOADS[b.workload];
 
 /** The recipe's quality loss on the benchmark's axis; the baseline (null) counts as zero. */
-export const lossOf = (b: Benchmark, rec: Recipe) => rec.metrics[workloadOf(b).quality.key]?.mean ?? 0;
+export const lossOf = (b: Benchmark, rec: Recipe) =>
+  rec.metrics[workloadOf(b).quality.key]?.mean ?? 0;
 export const fmtLoss = (b: Benchmark, v: number | null | undefined) => workloadOf(b).quality.fmt(v);
 export const fmtLatency = (b: Benchmark, seconds: number) => workloadOf(b).latency.fmt(seconds);
 

@@ -24,13 +24,27 @@ const renderFigure = (limit = 0.05) => {
 };
 
 describe("ParetoFigure quality limit", () => {
-  it("places the grip along the track in proportion to the limit", () => {
+  it("puts the grip on the dashed line inside the chart, not in a slider below it", () => {
     renderFigure(0.05);
     const grip = screen.getByTestId("limit-grip");
-    const pct = parseFloat(grip.style.left);
-    expect(pct).toBeGreaterThan(0);
-    expect(pct).toBeLessThan(100);
-    expect(screen.getByRole("slider")).toHaveAttribute("aria-orientation", "horizontal");
+    expect(grip.closest("svg")).not.toBeNull();
+    expect(grip).toHaveAttribute("role", "slider");
+    expect(grip).toHaveAttribute("aria-orientation", "vertical");
+    // the grip's parent group carries the line's height; the grip only adds an x offset
+    expect(grip.getAttribute("transform")).toMatch(/^translate\([\d.]+ 0\)$/);
+    expect(document.querySelector(".cursor-ew-resize")).toBeNull();
+  });
+
+  it("slides the grip left and right along the line without touching the limit", () => {
+    const { slider, onLimitChange } = renderFigure(0.05);
+    const xOf = () => parseFloat(slider.getAttribute("transform")!.slice("translate(".length));
+    const before = xOf();
+    fireEvent.keyDown(slider, { key: "ArrowRight" });
+    expect(xOf()).toBeGreaterThan(before);
+    fireEvent.keyDown(slider, { key: "ArrowLeft" });
+    fireEvent.keyDown(slider, { key: "ArrowLeft" });
+    expect(xOf()).toBeLessThan(before);
+    expect(onLimitChange).not.toHaveBeenCalled();
   });
 
   it("exposes the limit as a keyboard slider with its value in the tag", () => {
@@ -59,7 +73,7 @@ describe("ParetoFigure quality limit", () => {
     expect(xDomain([0.5, 1])[0]).toBe(0);
   });
 
-  it("draws frontier points blue or grey and dominated recipes as small grey dots", () => {
+  it("draws frontier points solid and dominated recipes as hollow grey rings", () => {
     renderFigure(0.05);
     const marker = (id: string) =>
       document.querySelector(`[data-recipe="${id}"] circle:nth-of-type(2)`)!;
@@ -67,13 +81,16 @@ describe("ParetoFigure quality limit", () => {
     expect(marker("dpcache-k20")).toHaveClass("fill-frontier");
     // on the frontier but above the limit: solid grey
     expect(marker("fp8-sage2-kernels-dpcache")).toHaveClass("fill-dominated-strong");
-    // dominated (Cache-DiT conservative is slower than DPCache K=20 for worse LPIPS): grey dot
-    expect(marker("cachedit-conservative")).toHaveClass("fill-dominated-strong");
+    // dominated (Cache-DiT conservative is slower than DPCache K=20 for worse LPIPS): hollow ring
+    expect(marker("cachedit-conservative")).toHaveClass(
+      "fill-background",
+      "stroke-dominated-strong",
+    );
+    expect(marker("cachedit-conservative")).not.toHaveClass("fill-dominated-strong");
     expect(marker("cachedit-conservative")).toHaveAttribute("r", "3.5");
-    expect(marker("cachedit-conservative")).not.toHaveAttribute("stroke-dasharray");
     expect(marker("cachedit-conservative")).not.toHaveClass("opacity-50");
-    // dominated and above the limit: same dot, faded
-    expect(marker("cachedit-stock")).toHaveClass("fill-dominated-strong", "opacity-50");
+    // dominated and above the limit: same ring, faded
+    expect(marker("cachedit-stock")).toHaveClass("stroke-dominated-strong", "opacity-50");
     expect(document.querySelector('[data-recipe="cachedit-conservative"]')).toHaveAttribute(
       "data-frontier",
       "false",
