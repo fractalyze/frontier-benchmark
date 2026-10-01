@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   fmtLatency,
   fmtLoss,
@@ -11,9 +11,17 @@ import {
 } from "@/data/frontier";
 import { cn } from "@/lib/utils";
 
-const W = 1180;
-const H = 500;
-const PAD = { l: 64, r: 24, t: 18, b: 52 };
+/** Chart geometry follows the container width; the height stays readable on a phone. */
+const layout = (width: number) => {
+  const narrow = width < 640;
+  return {
+    W: Math.max(320, width),
+    H: narrow ? 420 : 500,
+    PAD: { l: narrow ? 60 : 64, r: narrow ? 16 : 24, t: 18, b: narrow ? 46 : 52 },
+    /** the in-chart value tag needs room; on a phone the slider below shows the value */
+    showTag: !narrow,
+  };
+};
 /** Arrow keys move the requirement line by this much; a drag is continuous (0.001). */
 export const LIMIT_STEP = 0.005;
 const LIMIT_MIN = 0.001;
@@ -46,7 +54,20 @@ export function ParetoFigure({
 }) {
   const recipes = bench.recipes;
   const svgRef = useRef<SVGSVGElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<Recipe | null>(null);
+  const [width, setWidth] = useState(1180);
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setWidth(Math.round(entry.contentRect.width));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const { W, H, PAD, showTag } = layout(width);
   const workload = workloadOf(bench);
   const loss = (r: Recipe) => lossOf(bench, r);
   const { xMin, xMax, yMax, frontier, frontierIds } = useMemo(() => {
@@ -82,9 +103,16 @@ export function ParetoFigure({
   const nudge = (delta: number) => onLimitChange(clampLimit(limit + delta));
   const ly = y(limit);
   const tag = `${workload.quality.name} ≤ ${fmtLoss(bench, limit)}`;
+  /** Horizontal slider position, 0..1 over the allowed limit range. */
+  const frac = (limit - LIMIT_MIN) / (limitMax - LIMIT_MIN);
+  const limitFromTrack = (clientX: number) => {
+    const r = trackRef.current?.getBoundingClientRect();
+    if (!r || r.width === 0) return limit;
+    return clampLimit(LIMIT_MIN + clampTo((clientX - r.left) / r.width, 0, 1) * (limitMax - LIMIT_MIN));
+  };
 
   return (
-    <div className="relative">
+    <div ref={wrapRef} className="relative">
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
@@ -217,27 +245,13 @@ export function ParetoFigure({
         {/* the quality requirement: drag the line, or focus it and use the arrow keys */}
         <g
           transform={`translate(0 ${ly})`}
-          role="slider"
-          tabIndex={0}
-          aria-label={`Quality limit: maximum acceptable ${workload.quality.name}`}
-          aria-valuemin={LIMIT_MIN}
-          aria-valuemax={limitMax}
-          aria-valuenow={limit}
-          aria-valuetext={tag}
-          className="cursor-ns-resize outline-none"
+          className="cursor-ns-resize"
           onPointerDown={(e) => {
             e.currentTarget.setPointerCapture(e.pointerId);
             onLimitChange(limitFromPointer(e));
           }}
           onPointerMove={(e) => {
             if (e.currentTarget.hasPointerCapture(e.pointerId)) onLimitChange(limitFromPointer(e));
-          }}
-          onKeyDown={(e) => {
-            const step = e.shiftKey ? LIMIT_STEP * 4 : LIMIT_STEP;
-            if (e.key === "ArrowUp" || e.key === "ArrowRight") nudge(step);
-            else if (e.key === "ArrowDown" || e.key === "ArrowLeft") nudge(-step);
-            else return;
-            e.preventDefault();
           }}
         >
           <rect
@@ -249,41 +263,79 @@ export function ParetoFigure({
           />
           <line
             x1={PAD.l}
-            x2={W - PAD.r - 132}
+            x2={showTag ? W - PAD.r - 132 : W - PAD.r}
             y1={0}
             y2={0}
             className="stroke-foreground"
             strokeWidth={1.3}
             strokeDasharray="5 4"
           />
-          <rect
-            x={W - PAD.r - 124}
-            y={-12}
-            width={124}
-            height={24}
-            rx={12}
-            className="fill-foreground"
-          />
-          <text
-            x={W - PAD.r - 62}
-            y={4.5}
-            textAnchor="middle"
-            className="num fill-background text-[12px] font-medium"
-          >
-            {tag}
-          </text>
-          {/* grip at the axis; the whole dashed line (32px hit area) drags too */}
-          <rect
-            x={PAD.l + 2}
-            y={-6}
-            width={30}
-            height={12}
-            rx={6}
-            className="fill-background stroke-foreground"
-            strokeWidth={1.3}
-          />
+          {showTag && (
+            <>
+              <rect
+                x={W - PAD.r - 124}
+                y={-12}
+                width={124}
+                height={24}
+                rx={12}
+                className="fill-foreground"
+              />
+              <text
+                x={W - PAD.r - 62}
+                y={4.5}
+                textAnchor="middle"
+                className="num fill-background text-[12px] font-medium"
+              >
+                {tag}
+              </text>
+            </>
+          )}
         </g>
       </svg>
+
+      {/* the quality limit as a horizontal slider: the white grip moves left and right,
+          the dashed line above follows */}
+      <div className="mt-2 flex items-center gap-3 text-[12px]">
+        <span className="shrink-0 font-medium tracking-wider text-muted-foreground uppercase">
+          Quality limit
+        </span>
+        <div
+          ref={trackRef}
+          role="slider"
+          tabIndex={0}
+          aria-label={`Quality limit: maximum acceptable ${workload.quality.name}`}
+          aria-orientation="horizontal"
+          aria-valuemin={LIMIT_MIN}
+          aria-valuemax={limitMax}
+          aria-valuenow={limit}
+          aria-valuetext={tag}
+          className="relative h-6 flex-1 cursor-ew-resize touch-none outline-none select-none focus-visible:ring-2 focus-visible:ring-ring"
+          onPointerDown={(e) => {
+            e.currentTarget.setPointerCapture(e.pointerId);
+            onLimitChange(limitFromTrack(e.clientX));
+          }}
+          onPointerMove={(e) => {
+            if (e.currentTarget.hasPointerCapture(e.pointerId)) onLimitChange(limitFromTrack(e.clientX));
+          }}
+          onKeyDown={(e) => {
+            const step = e.shiftKey ? LIMIT_STEP * 4 : LIMIT_STEP;
+            if (e.key === "ArrowUp" || e.key === "ArrowRight") nudge(step);
+            else if (e.key === "ArrowDown" || e.key === "ArrowLeft") nudge(-step);
+            else return;
+            e.preventDefault();
+          }}
+        >
+          <div className="absolute top-1/2 right-0 left-0 h-px -translate-y-1/2 border-t border-dashed border-foreground" />
+          <div
+            data-testid="limit-grip"
+            className="absolute top-1/2 h-3 w-[30px] -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.3px] border-foreground bg-background"
+            style={{ left: `${frac * 100}%` }}
+          />
+        </div>
+        <span className="num shrink-0 rounded-full bg-foreground px-2.5 py-0.5 font-medium text-background">
+          {tag}
+        </span>
+      </div>
 
       {hover && (
         <div
