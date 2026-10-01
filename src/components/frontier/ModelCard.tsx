@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from "react";
 import {
-  fmtLimit,
+  fmtLpips,
   hardwareBySlug,
-  ladder,
+  lpipsOf,
+  paretoFrontier,
   speedup,
   type Benchmark,
   type ModelInfo,
@@ -12,7 +13,9 @@ import { HardwareSelect } from "./HardwareSelect";
 const DASH = "—";
 
 /**
- * One model, a hardware select, and the fastest recipe at each quality limit.
+ * One model, a hardware select, and the benchmark's Pareto frontier: every recipe that is
+ * the fastest at its quality loss (the same points the benchmark page's chart connects),
+ * so the card always restates the page's numbers.
  * Router-free: the route supplies the link around the title via renderLink. The link's inner
  * span is stretched over the whole card, so the card is clickable without nesting the select
  * inside an anchor; the select sits above it with z-10.
@@ -29,6 +32,10 @@ export function ModelCard({
 }) {
   const [hardware, setHardware] = useState(benches[0]!.hardware);
   const bench = benches.find((b) => b.hardware === hardware) ?? benches[0]!;
+  // quality-first: the frontier read from the baseline towards the fastest recipe
+  const frontier = paretoFrontier(bench.recipes)
+    .filter((r) => r.id !== bench.baseline.id)
+    .reverse();
   return (
     <div className="relative flex h-full flex-col rounded-sm border border-border p-4 text-[13px] transition-colors hover:bg-surface-alt">
       <div className="flex items-baseline justify-between gap-3">
@@ -49,26 +56,40 @@ export function ModelCard({
         baseline {bench.baseline.metrics.latencyS.toFixed(1)}s
       </div>
 
-      <table className="num mt-3 w-full border-collapse">
-        <tbody>
-          {ladder(bench).map(({ limit, recipe }) => (
-            <tr key={limit} className="border-t border-border">
-              <td className="py-1.5 pr-3 whitespace-nowrap text-muted-foreground">
-                ≤ {fmtLimit(limit)}
-              </td>
-              <td className="py-1.5 pr-3 text-right whitespace-nowrap font-medium">
-                {recipe ? `${recipe.metrics.latencyS.toFixed(1)}s` : DASH}
-              </td>
-              <td className="py-1.5 pr-3 text-right whitespace-nowrap text-muted-foreground">
-                {recipe ? `${speedup(bench, recipe).toFixed(1)}×` : DASH}
-              </td>
-              <td className="w-full max-w-0 truncate py-1.5 text-muted-foreground">
-                {recipe ? recipe.name : DASH}
-              </td>
+      {frontier.length ? (
+        <table className="num mt-3 w-full border-collapse">
+          <thead>
+            <tr className="text-[10px] tracking-wider text-muted-foreground uppercase">
+              <th className="pb-1 pr-3 text-left font-medium">LPIPS</th>
+              <th className="pb-1 pr-3 text-right font-medium">Latency</th>
+              <th className="pb-1 pr-3 text-right font-medium">Speedup</th>
+              <th className="pb-1 text-left font-medium">Recipe</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {frontier.map((recipe) => (
+              <tr key={recipe.id} className="border-t border-border">
+                <td className="py-1.5 pr-3 whitespace-nowrap text-muted-foreground">
+                  {fmtLpips(lpipsOf(recipe))}
+                </td>
+                <td className="py-1.5 pr-3 text-right whitespace-nowrap font-medium">
+                  {recipe.metrics.latencyS.toFixed(1)}s
+                </td>
+                <td className="py-1.5 pr-3 text-right whitespace-nowrap text-muted-foreground">
+                  {speedup(bench, recipe).toFixed(1)}×
+                </td>
+                <td className="w-full max-w-0 truncate py-1.5 text-muted-foreground">
+                  {recipe.name}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="mt-3 border-t border-border pt-2 text-[12px] text-muted-foreground">
+          {DASH} no recipe faster than the baseline yet
+        </p>
+      )}
     </div>
   );
 }
