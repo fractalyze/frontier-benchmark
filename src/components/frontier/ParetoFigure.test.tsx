@@ -24,11 +24,20 @@ const renderFigure = (limit = 0.05) => {
 };
 
 describe("ParetoFigure quality limit", () => {
+  it("places the grip along the track in proportion to the limit", () => {
+    renderFigure(0.05);
+    const grip = screen.getByTestId("limit-grip");
+    const pct = parseFloat(grip.style.left);
+    expect(pct).toBeGreaterThan(0);
+    expect(pct).toBeLessThan(100);
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-orientation", "horizontal");
+  });
+
   it("exposes the limit as a keyboard slider with its value in the tag", () => {
     const { slider } = renderFigure(0.05);
     expect(slider).toHaveAttribute("aria-valuenow", "0.05");
     expect(slider).toHaveAttribute("aria-valuetext", "LPIPS ≤ .050");
-    expect(screen.getByText("LPIPS ≤ .050")).toBeInTheDocument();
+    expect(screen.getAllByText("LPIPS ≤ .050").length).toBeGreaterThanOrEqual(1);
   });
 
   it("nudges the limit by one step with the arrow keys, four with shift", () => {
