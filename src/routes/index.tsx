@@ -65,7 +65,7 @@ function Index() {
 
       {groups.map((g) => (
         <section key={g} className="mt-10">
-          <Label>{g}</Label>
+          <Label>{`${g} models`}</Label>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {MODELS.filter((m) => m.group === g)
               .map((m) => ({ m, benches: BENCHMARKS.filter((b) => b.model === m.slug) }))

@@ -37,11 +37,11 @@ export function ModelCard({
     .filter((r) => r.id !== bench.baseline.id)
     .reverse();
   return (
-    <div className="relative flex h-full flex-col rounded-sm border border-border p-4 text-[13px] transition-colors hover:bg-surface-alt">
+    <div className="group relative flex h-full cursor-pointer flex-col rounded-sm border border-border p-4 text-[13px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,box-shadow] hover:border-border-strong hover:bg-surface-alt hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] focus-within:border-primary">
       <div className="flex items-baseline justify-between gap-3">
         {renderLink(
           bench,
-          <span className="text-[14px] font-medium after:absolute after:inset-0">
+          <span className="text-[14px] font-medium after:absolute after:inset-0 group-hover:text-primary">
             {model.name}
           </span>,
         )}
@@ -90,6 +90,10 @@ export function ModelCard({
           {DASH} no recipe faster than the baseline yet
         </p>
       )}
+      <div className="mt-auto flex items-center gap-1 pt-3 text-[12px] font-medium text-primary">
+        View benchmark
+        <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
+      </div>
     </div>
   );
 }
