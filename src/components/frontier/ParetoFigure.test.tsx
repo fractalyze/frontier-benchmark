@@ -50,7 +50,7 @@ describe("ParetoFigure quality limit", () => {
     expect(xDomain([0.5, 1])[0]).toBe(0);
   });
 
-  it("draws frontier points solid and dominated recipes as dashed rings", () => {
+  it("draws frontier points blue or grey and dominated recipes as small grey dots", () => {
     renderFigure(0.05);
     const marker = (id: string) =>
       document.querySelector(`[data-recipe="${id}"] circle:nth-of-type(2)`)!;
@@ -58,10 +58,13 @@ describe("ParetoFigure quality limit", () => {
     expect(marker("dpcache-k20")).toHaveClass("fill-frontier");
     // on the frontier but above the limit: solid grey
     expect(marker("fp8-sage2-kernels-dpcache")).toHaveClass("fill-dominated-strong");
-    // dominated (Cache-DiT conservative is slower than DPCache K=20 for worse LPIPS): hollow
-    expect(marker("cachedit-conservative")).toHaveClass("fill-background", "stroke-dominated-strong");
-    expect(marker("cachedit-conservative")).toHaveAttribute("stroke-dasharray", "1.2 1.6");
-    expect(marker("dpcache-k20")).not.toHaveAttribute("stroke-dasharray");
+    // dominated (Cache-DiT conservative is slower than DPCache K=20 for worse LPIPS): grey dot
+    expect(marker("cachedit-conservative")).toHaveClass("fill-dominated-strong");
+    expect(marker("cachedit-conservative")).toHaveAttribute("r", "3.5");
+    expect(marker("cachedit-conservative")).not.toHaveAttribute("stroke-dasharray");
+    expect(marker("cachedit-conservative")).not.toHaveClass("opacity-50");
+    // dominated and above the limit: same dot, faded
+    expect(marker("cachedit-stock")).toHaveClass("fill-dominated-strong", "opacity-50");
     expect(document.querySelector('[data-recipe="cachedit-conservative"]')).toHaveAttribute(
       "data-frontier",
       "false",

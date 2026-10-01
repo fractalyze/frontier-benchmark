@@ -184,23 +184,18 @@ export function ParetoFigure({
             >
               <circle cx={cx} cy={cy} r={14} fill="transparent" />
               {sel && <circle cx={cx} cy={cy} r={11} className="fill-frontier/12" />}
-              {/* frontier points are solid (blue within the limit, grey above it);
-                  dominated recipes are dashed rings so the frontier reads at a glance */}
+              {/* frontier points: blue within the limit, dark grey above it;
+                  dominated recipes: small light-grey dots, fainter above the limit */}
               <circle
                 cx={cx}
                 cy={cy}
-                r={sel ? 6.5 : onF ? 4.5 : 4}
+                r={sel ? 6.5 : onF ? 4.5 : 3.5}
                 className={cn(
-                  sel || (onF && !out)
-                    ? "fill-frontier stroke-background"
-                    : onF
-                      ? "fill-dominated-strong stroke-background"
-                      : out
-                        ? "fill-background stroke-dominated"
-                        : "fill-background stroke-dominated-strong",
+                  "stroke-background",
+                  sel || (onF && !out) ? "fill-frontier" : "fill-dominated-strong",
+                  !onF && out && !sel && "opacity-50",
                 )}
-                strokeWidth={sel || onF ? 1.5 : 1.2}
-                strokeDasharray={sel || onF ? undefined : "1.2 1.6"}
+                strokeWidth={1.5}
               />
               {labelled.has(r.id) && (
                 <text
@@ -277,24 +272,15 @@ export function ParetoFigure({
           >
             {tag}
           </text>
-          {/* vertical grip at the axis (the limit moves up and down); the whole dashed
-              line (32px hit area) drags too */}
+          {/* grip at the axis; the whole dashed line (32px hit area) drags too */}
           <rect
-            x={PAD.l + 4}
-            y={-13}
-            width={14}
-            height={26}
-            rx={7}
+            x={PAD.l + 2}
+            y={-6}
+            width={30}
+            height={12}
+            rx={6}
             className="fill-background stroke-foreground"
             strokeWidth={1.3}
-          />
-          <path
-            d={`M${PAD.l + 8} -4.5 l3 -3 l3 3 M${PAD.l + 8} 4.5 l3 3 l3 -3`}
-            fill="none"
-            className="stroke-foreground"
-            strokeWidth={1.3}
-            strokeLinecap="round"
-            strokeLinejoin="round"
           />
         </g>
       </svg>
