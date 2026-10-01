@@ -50,6 +50,23 @@ describe("ParetoFigure quality limit", () => {
     expect(xDomain([0.5, 1])[0]).toBe(0);
   });
 
+  it("draws frontier points solid and dominated recipes as hollow rings", () => {
+    renderFigure(0.05);
+    const marker = (id: string) =>
+      document.querySelector(`[data-recipe="${id}"] circle:nth-of-type(2)`)!;
+    // on the frontier and within the limit: solid blue
+    expect(marker("dpcache-k20")).toHaveClass("fill-frontier");
+    // on the frontier but above the limit: solid grey
+    expect(marker("fp8-sage2-kernels-dpcache")).toHaveClass("fill-dominated-strong");
+    // dominated (Cache-DiT conservative is slower than DPCache K=20 for worse LPIPS): hollow
+    expect(marker("cachedit-conservative")).toHaveClass("fill-background", "stroke-dominated-strong");
+    expect(marker("cachedit-conservative")).toHaveAttribute("r", "3.5");
+    expect(document.querySelector('[data-recipe="cachedit-conservative"]')).toHaveAttribute(
+      "data-frontier",
+      "false",
+    );
+  });
+
   it("selects a recipe when its point is clicked", () => {
     const { onSelect } = renderFigure();
     fireEvent.click(screen.getByText("Baseline"));
