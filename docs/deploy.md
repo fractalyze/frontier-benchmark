@@ -1,5 +1,8 @@
 # Deploying
 
+Scope: how a merged `main` reaches production, and what protects it.
+Status: current · updated 2026-10-01.
+
 The site is a TanStack Start app deployed to Vercel, project
 `fractalyze/frontier`, production URL https://frontier-fractalyze.vercel.app.
 
@@ -42,5 +45,6 @@ make the site public.
 ## Metadata
 
 `src/routes/__root.tsx` sets the favicon (`public/favicon.svg|ico`,
-`apple-touch-icon.png`), the Open Graph card (`public/og.png`, 1200×630) and
-`SITE_URL` from `src/data/site.ts`.
+`apple-touch-icon.png`; all three are rendered from the one SVG, a Pareto step
+line), the Open Graph card (`public/og.png`, 1200×630) and `SITE_URL` from
+`src/data/site.ts`.

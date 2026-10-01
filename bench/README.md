@@ -1,7 +1,8 @@
 # bench — the measurement harness
 
-Procedures for adding recipes and models live in `docs/adding-a-recipe.md` and
-`docs/adding-a-model.md`; this page documents the harness itself.
+Scope: what the harness does, what its numbers mean, and how to set it up.
+Procedures live in [docs/adding-a-recipe.md](../docs/adding-a-recipe.md) and
+[docs/adding-a-model.md](../docs/adding-a-model.md).
 
 Re-measures a recipe on this machine's RTX 5090 and writes the numbers back into
 `data/`. One command per recipe:
@@ -38,14 +39,9 @@ revision, engine model id); `protocol.offload` picks the residency (`none` keeps
 every component on the GPU, as FLUX.2 klein 4B does). Pass `--model` to
 `bench.run` / `bench.emit` for anything but Qwen-Image 2.1.
 
-Recipe config files (`configs/<id>.json`, pointed to by `configPath`) come in three
-shapes: a DPCache schedule artifact (served through `dpcache_schedule_dir`,
-requested as `dpcache_budget`), `sglang-cache-dit-params`, or `sglang-runtime`
-(`server` kwargs, `env` knobs, `request` fields merged over the protocol). An
-`sglang-runtime` config may also name a `dpcache_schedule` (repo-relative path)
-to stack DPCache on that runtime; a schedule is bound to the attention backend
-and checkpoint it was calibrated for, so a runtime that changes either needs its
-own (`python -m bench.calibrate --recipe <id> --budgets 12 16 20 ...`).
+The three recipe config shapes (`sglang-runtime`, a DPCache schedule file,
+`sglang-cache-dit-params`) and the calibration command are described in
+[docs/adding-a-recipe.md](../docs/adding-a-recipe.md#1-describe-the-configuration).
 
 ## What a number means
 
@@ -72,6 +68,7 @@ are the reference machine's.
 
 | variable              | meaning                                                       |
 | --------------------- | ------------------------------------------------------------- |
+| `BENCH_GPU`           | the one GPU index the harness pins (default `0`)              |
 | `HF_HOME`             | Hugging Face cache holding the pinned checkpoints             |
 | `BENCH_HELDOUT`       | private held-out corpus (`splits.heldout[]`, never committed) |
 | `BENCH_RUNS`          | root for run directories                                      |
