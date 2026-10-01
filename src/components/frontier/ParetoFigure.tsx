@@ -108,7 +108,9 @@ export function ParetoFigure({
   const limitFromTrack = (clientX: number) => {
     const r = trackRef.current?.getBoundingClientRect();
     if (!r || r.width === 0) return limit;
-    return clampLimit(LIMIT_MIN + clampTo((clientX - r.left) / r.width, 0, 1) * (limitMax - LIMIT_MIN));
+    return clampLimit(
+      LIMIT_MIN + clampTo((clientX - r.left) / r.width, 0, 1) * (limitMax - LIMIT_MIN),
+    );
   };
 
   return (
@@ -315,7 +317,8 @@ export function ParetoFigure({
             onLimitChange(limitFromTrack(e.clientX));
           }}
           onPointerMove={(e) => {
-            if (e.currentTarget.hasPointerCapture(e.pointerId)) onLimitChange(limitFromTrack(e.clientX));
+            if (e.currentTarget.hasPointerCapture(e.pointerId))
+              onLimitChange(limitFromTrack(e.clientX));
           }}
           onKeyDown={(e) => {
             const step = e.shiftKey ? LIMIT_STEP * 4 : LIMIT_STEP;
@@ -349,8 +352,7 @@ export function ParetoFigure({
           <div className="max-w-64 font-medium">{hover.name}</div>
           <div className="num mt-1 text-muted-foreground">
             {fmtLatency(bench, hover.metrics.latencyS)} · {workload.quality.name}{" "}
-            {fmtLoss(bench, loss(hover))} ·{" "}
-            {speedup(bench, hover).toFixed(1)}× faster
+            {fmtLoss(bench, loss(hover))} · {speedup(bench, hover).toFixed(1)}× faster
           </div>
         </div>
       )}

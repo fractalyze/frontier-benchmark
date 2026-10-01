@@ -73,7 +73,9 @@ describe("ModelCard", () => {
 
   it("shows every FLUX recipe on the frontier even though all exceed LPIPS .10", () => {
     const flux = findBenchmark("flux-2-klein-4b", "rtx5090")!;
-    render(<ModelCard model={modelBySlug("flux-2-klein-4b")!} benches={[flux]} renderLink={link} />);
+    render(
+      <ModelCard model={modelBySlug("flux-2-klein-4b")!} benches={[flux]} renderLink={link} />,
+    );
     expect(rows().map((r) => r.slice(0, 3))).toEqual([
       [".120", "3.1s", "5.8×"],
       [".193", "2.6s", "6.9×"],

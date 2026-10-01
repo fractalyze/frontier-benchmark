@@ -97,7 +97,8 @@ function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
       ),
     ],
   ];
-  if (r.configPath) run.push(["Config", <Ext href={fileUrl(r.configPath)}>{basename(r.configPath)}</Ext>]);
+  if (r.configPath)
+    run.push(["Config", <Ext href={fileUrl(r.configPath)}>{basename(r.configPath)}</Ext>]);
   if (r.sourceUrl) run.push(["Source", <Ext href={r.sourceUrl}>report</Ext>]);
   if (r.pr) run.push(["Submission", <Ext href={prUrl(r.pr)}>PR #{r.pr}</Ext>]);
 

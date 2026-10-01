@@ -163,7 +163,11 @@ describe("loader rejects", () => {
     metricsOf(r)["ssim"] = null;
     metricsOf(r)["imageReward"] = null;
     metricsOf(r)["peakVramGb"] = null;
-    expect(buildBenchmarks(f).find((b) => b.model === "qwen-image-2.1")?.recipes.find((x) => x.id === "dpcache-k12")).toBeDefined();
+    expect(
+      buildBenchmarks(f)
+        .find((b) => b.model === "qwen-image-2.1")
+        ?.recipes.find((x) => x.id === "dpcache-k12"),
+    ).toBeDefined();
   });
 
   it("links every configPath to a file that exists", () => {

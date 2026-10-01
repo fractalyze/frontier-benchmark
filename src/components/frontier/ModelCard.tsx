@@ -95,7 +95,9 @@ export function ModelCard({
       )}
       <div className="mt-auto flex items-center gap-1 pt-3 text-[12px] font-medium text-primary">
         View benchmark
-        <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
+        <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
+          →
+        </span>
       </div>
     </div>
   );

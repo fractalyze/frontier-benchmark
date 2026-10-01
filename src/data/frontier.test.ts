@@ -144,4 +144,3 @@ describe("fmtLpips", () => {
     expect(fmtLpips(0.1)).toBe(".100");
   });
 });
-

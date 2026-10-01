@@ -84,7 +84,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:image", content: `${SITE_URL}/og.png` },
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
-      { property: "og:image:alt", content: "Inference Frontier — latency-quality frontiers for generative inference" },
+      {
+        property: "og:image:alt",
+        content: "Inference Frontier — latency-quality frontiers for generative inference",
+      },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:image", content: `${SITE_URL}/og.png` },
       { name: "theme-color", content: "#3454c9" },
