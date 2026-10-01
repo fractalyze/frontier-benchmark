@@ -1,90 +1,40 @@
 # Inference Frontier
 
-An open archive of latency–quality Pareto frontiers for generative image and
-video inference. Each benchmark is one model on one GPU; each row is a
-**recipe** — a combination of optimizations (feature caching, quantization,
-sparse attention, compilation, …) — measured against the un-optimized baseline
-under one fixed protocol.
+Latency–quality Pareto frontiers for generative inference, one page per
+model × GPU. Each row is a **recipe** (a combination of optimizations) measured
+against the engine's native baseline under one fixed protocol. Live at
+https://frontier-fractalyze.vercel.app (currently behind Vercel Authentication).
 
-> **Status:** the numbers in `data/` were measured by this repo's harness
-> (`bench/`, see [bench/README.md](bench/README.md)) on one RTX 5090, on a private
-> held-out prompt set, so they are `Verified`. The five caching recipes are the
-> DPCache study behind [sgl-project/sglang#40848](https://github.com/sgl-project/sglang/pull/40848)
-> re-measured here; the FP8 / SageAttention2 / fused-kernel recipes come from the
-> same engine branch.
+Published pages: Qwen-Image 2.1 × RTX 5090 (10 recipes) and FLUX.2 [klein] 4B ×
+RTX 5090 (4 recipes), all `Verified` on a private held-out set with the harness
+in `bench/`.
 
-## What is measured
+## Read first
 
-All recipes on a page are compared to the same **baseline**: the engine's
-native run under the page's protocol (for Qwen-Image 2.1 × RTX 5090: BF16,
-40 steps, guidance 1, `torch_sdpa`, DiT and VAE resident, text encoder
-layerwise offload, eager). Model
-weights are never changed; distilled or fine-tuned checkpoints are not recipes.
+| doc                                                | what it answers                                                    |
+| -------------------------------------------------- | ------------------------------------------------------------------ |
+| [docs/data-model.md](docs/data-model.md)           | what every JSON field means, workloads, status, loader rules       |
+| [docs/adding-a-recipe.md](docs/adding-a-recipe.md) | config shapes, placeholder → smoke → measure → publish             |
+| [docs/adding-a-model.md](docs/adding-a-model.md)   | the five places a new model × hardware page touches                |
+| [bench/README.md](bench/README.md)                 | the measurement harness: modules, environment, what a number means |
+| [docs/deploy.md](docs/deploy.md)                   | Vercel CLI deploy from a clean copy, release flow, auth            |
+| [docs/decisions.md](docs/decisions.md)             | settled product and protocol decisions                             |
+| [AGENTS.md](AGENTS.md)                             | always-on rules for coding agents                                  |
 
-| Metric        | Definition                                                                                                                                                                |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `latencyS`    | One image, prompt in → image out, one request at a time; how it was timed is written in `benchmark.json` `timing`                                                         |
-| `peakVramGb`  | Peak GPU memory the engine reports over the timed renders (`null` when the source did not record it)                                                                     |
-| `lpips`       | LPIPS(alex) vs. the baseline image for the same prompt and seed, mean and max over the prompt set. **Primary quality axis** for image and video benchmarks — every chart and quality limit uses the mean |
-| `wer`         | Speech benchmarks only: word-error-rate increase vs. the baseline's transcribed output, mean and max. Their primary quality axis |
-| `psnr`        | PSNR (dB) vs. the baseline image, mean and min                                                                                                                            |
-| `ssim`        | SSIM vs. the baseline image, mean                                                                                                                                         |
-| `imageReward` | ImageReward-v1.0 of the recipe's own images, mean (absolute; the baseline has one too)                                                                                  |
+Agents: the skill `.agents/skills/frontier-benchmark-recipes` (also linked from
+`.claude/skills/`) walks through adding a recipe or a model.
 
-The baseline is compared against itself, so its `lpips` / `psnr` / `ssim`
-are `null` and render as "—".
-
-Two prompt sets exist per benchmark. The **public** set is checked into the
-repo at the path `benchmark.json` declares (`data/prompts/`, prompt + seed
-pairs), and results measured on it are `Submitted`. A private **held-out** set
-(`null` until one exists) is run only by the maintainers; results re-measured
-on it are `Verified`. This is what keeps a recipe from being tuned to the
-prompts it is scored on.
-
-## Data layout
+## Repository map
 
 ```
-data/benchmarks/<model>/<hardware>/
-├── benchmark.json          # workload (image / video / speech) + protocol shared by every recipe on the page
-├── recipes/<id>.json       # one file per recipe; id == filename
-└── configs/*               # the reproducible config each recipe points at
-data/prompts/<set>.json     # the public prompt/seed pairs a page was scored on
+data/benchmarks/<model>/<hardware>/   benchmark.json, recipes/*.json, configs/**
+data/prompts/                         public prompt/seed corpora
+src/data/                             schema.ts (zod), frontier.ts (loader, WORKLOADS, frontier maths), site.ts
+src/routes/                           index.tsx (cards), $model.$hardware.tsx (chart, table, dialog), __root.tsx (head)
+src/components/frontier/              ModelCard, ParetoFigure, ResultsTable (+ RecipeDialog), selects
+bench/                                Python harness: protocol, render, score, emit, run, calibrate
+public/                               favicon, og.png
 ```
-
-`benchmark.json` holds the protocol (resolution, batch, steps, precision,
-guidance, attention backend, offload, version), both prompt sets, how latency
-was timed, and the id of the baseline recipe. A recipe file holds the engine
-(name, version, link), the optimization list as `{ technique, method }` pairs,
-short configuration notes, the metrics above, the status, which prompt set it
-was measured on, the date, and provenance (`configPath`, `sourceUrl`, `pr`).
-
-Techniques are a closed list: Step Reduction, Feature Caching, Sparse
-Attention, Token Pruning, Quantization, Kernel Optimization, Compilation,
-Parallelism. A recipe's display name is derived from its methods
-(`DPCache + FP8`), so a name can never disagree with what it contains.
-
-Every file is validated with the zod schema in `src/data/schema.ts`, and the
-loader in `src/data/frontier.ts` enforces the cross-file rules: the declared
-baseline recipe exists, has an empty optimization list and null vs.-baseline
-metrics, and is the only recipe allowed to; ids are unique and match
-filenames; the directory path matches the declared model/hardware; each
-model × hardware pair appears once; model and hardware slugs are in the
-catalogue. A bad data file fails `npm test` and `npm run build` with a message
-naming the file.
-
-## Adding a recipe
-
-1. Copy an existing `recipes/<id>.json`, pick a new slug for the id and
-   filename, and describe the optimization.
-2. Point `configPath` at a reproducible config committed in the same PR.
-3. Open a pull request. Maintainers run the recipe on the reference machine —
-   first on the public set, then on the held-out set — and commit the
-   metrics. Until then the file may carry `status: "Submitted"` with numbers
-   from your own run on the same GPU.
-
-The harness that produces the metrics is `bench/` (Python); one command
-re-measures a recipe end to end and rewrites its file. See
-[bench/README.md](bench/README.md).
 
 ## Running locally
 
@@ -98,6 +48,10 @@ npm run lint     # eslint (prettier runs as an eslint rule); npm run format rewr
 npm run build    # production build (TanStack Start + nitro)
 ```
 
+Harness tests: `/data/a41/frontier-venv/bin/python -m pytest` from the repo
+root.
+
 ## Built with
 
-TanStack Start, React 19, Tailwind CSS 4, zod, vitest.
+TanStack Start, React 19, Tailwind CSS 4, zod, vitest; sglang-diffusion
+(`fractalyze/sglang@qi21/showcase`) for the measurements.
