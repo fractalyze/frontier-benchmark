@@ -22,12 +22,13 @@ export interface Recipe extends RecipeFile {
   name: string;
 }
 
-export interface Benchmark extends BenchmarkFile {
+/** A benchmark.json plus its recipes; a union on `workload`, like the file. */
+export type Benchmark = BenchmarkFile & {
   recipes: Recipe[];
   baseline: Recipe;
   /** Max recipe date. */
   updated: string;
-}
+};
 
 export interface ModelInfo {
   slug: string;
@@ -53,16 +54,45 @@ export interface Workload {
     /** How the loss is measured, for the methodology section. */
     method: string;
     fmt: (v: number | null | undefined) => string;
+    /** Chart y-axis title, and how a nonzero y tick is labelled. */
+    axis: string;
+    tick: (v: number) => string;
+    /** Chart scale: y tick spacing, and the smallest top of the y axis. */
+    step: number;
+    span: number;
+    /** The limit a benchmark page opens with. */
+    defaultLimit: number;
+    /** Arrow keys move the limit by this much; a drag rounds to `digits` decimals. */
+    limitStep: number;
+    digits: number;
+    /** Lowest limit the grip allows; the bottom of the y axis also bounds it. */
+    limitMin: number;
   };
+  /** PSNR, SSIM and ImageReward apply: the recipe dialog shows their tiles. */
+  imageScores: boolean;
   latency: {
     /** Chart axis label. */
     axis: string;
     fmt: (seconds: number) => string;
+    /** x tick spacing in seconds, and how a tick is labelled in the axis label's unit. */
+    step: number;
+    tick: (seconds: number) => string;
   };
 }
 
 const fmtSeconds = (s: number) => `${s.toFixed(1)}s`;
 const fmtMillis = (s: number) => `${Math.round(s * 1000)} ms`;
+const IMAGE_SCALE = {
+  step: 0.02,
+  span: 0.1,
+  defaultLimit: 0.05,
+  limitStep: 0.005,
+  digits: 3,
+  limitMin: 0.001,
+  axis: "Quality loss (LPIPS)",
+  tick: (v: number) => fmtLpips(v),
+};
+const SECONDS_AXIS = { axis: "E2E latency (s)", fmt: fmtSeconds, step: 2, tick: String };
 
 export const WORKLOADS: Record<WorkloadSlug, Workload> = {
   image: {
@@ -74,8 +104,10 @@ export const WORKLOADS: Record<WorkloadSlug, Workload> = {
       name: "LPIPS",
       method: "LPIPS (and PSNR) against the baseline image for the same prompt and seed.",
       fmt: (v) => fmtLpips(v),
+      ...IMAGE_SCALE,
     },
-    latency: { axis: "E2E latency (s)", fmt: fmtSeconds },
+    imageScores: true,
+    latency: SECONDS_AXIS,
   },
   video: {
     slug: "video",
@@ -86,21 +118,39 @@ export const WORKLOADS: Record<WorkloadSlug, Workload> = {
       name: "LPIPS",
       method: "LPIPS against the baseline clip for the same prompt and seed, averaged over frames.",
       fmt: (v) => fmtLpips(v),
+      ...IMAGE_SCALE,
     },
-    latency: { axis: "E2E latency (s)", fmt: fmtSeconds },
+    imageScores: true,
+    latency: SECONDS_AXIS,
   },
   speech: {
     slug: "speech",
     label: "Speech models",
-    caption: "milliseconds to first audio · ΔWER vs baseline",
+    caption: "milliseconds to first audio · ΔWER vs baseline, negative is fewer errors",
     quality: {
       key: "wer",
       name: "ΔWER",
       method:
-        "word-error-rate increase of the transcribed output against the baseline's for the same prompt.",
-      fmt: (v) => fmtLpips(v),
+        "each reply's audio is transcribed (Qwen3-ASR-1.7B) and scored against that reply's own text; ΔWER is the recipe's word-weighted WER minus the baseline's over the same prompts, negative when the recipe makes fewer errors.",
+      fmt: (v) => fmtPp(v),
+      axis: "Quality loss (ΔWER, pp)",
+      // ticks every half point: "+0.5", "−0.5"; the unit is in the axis title
+      tick: (v) => fmtPp(v).replace(/(\.\d)0 pp$/, "$1"),
+      // ΔWER is a few tenths of a percentage point either side of zero.
+      step: 0.005,
+      span: 0.015,
+      defaultLimit: 0.005,
+      limitStep: 0.001,
+      digits: 4,
+      limitMin: -Infinity,
     },
-    latency: { axis: "Time to first audio (ms)", fmt: fmtMillis },
+    imageScores: false,
+    latency: {
+      axis: "Time to first audio (ms)",
+      fmt: fmtMillis,
+      step: 0.025,
+      tick: (s) => String(Math.round(s * 1000)),
+    },
   },
 };
 export interface HardwareInfo {
@@ -264,3 +314,29 @@ export const fastestUnder = (b: Benchmark, limit: number) =>
 export const fmtLpips = (v: number | null | undefined) =>
   v ? v.toFixed(3).replace(/^0/, "") : "—";
 export const fmtResolution = (r: string) => r.replace("x", "×");
+/** A signed fraction in percentage points: +1.05 pp, −0.58 pp; exactly zero is "0", null "—". */
+export const fmtPp = (v: number | null | undefined) =>
+  v == null ? "—" : v === 0 ? "0" : `${v > 0 ? "+" : "−"}${(Math.abs(v) * 100).toFixed(2)} pp`;
+
+/** The protocol as label/value pairs for the benchmark page header; each workload has its own. */
+export function protocolRows(b: Benchmark): [string, string | number][] {
+  if (b.workload === "speech") {
+    const s = b.protocol;
+    return [
+      ["Output", s.output],
+      ["Batch", s.batch],
+      ["Precision", s.precision],
+      ["Decoding", s.decoding],
+    ];
+  }
+  const i = b.protocol;
+  return [
+    ["Resolution", fmtResolution(i.resolution)],
+    ["Batch", i.batch],
+    ["Steps", i.steps],
+    ["Precision", i.precision],
+    ["Guidance", i.guidance],
+    ["Attention", i.attention],
+    ["Offload", i.offload],
+  ];
+}

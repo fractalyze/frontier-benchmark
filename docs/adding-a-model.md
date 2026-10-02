@@ -1,7 +1,7 @@
 # Adding a model × hardware page
 
 Scope: how a new benchmark page (one model on one GPU) is created end to end.
-Status: current · updated 2026-10-01.
+Status: current · updated 2026-10-02.
 
 A page has its own protocol, its own baseline and its own recipes. Five
 places change, in the order below; the loader and the tests name whatever is
@@ -16,7 +16,9 @@ and the best template to copy.
 - The engine (`fractalyze/sglang`, branch `qi21/showcase`) can run the model.
   For a workload the harness has never measured (video, speech) the harness
   needs a new renderer and scorer first; `bench/render.py` and
-  `bench/score.py` are image-only. Plan that as its own PR.
+  `bench/score.py` are image-only. Plan that as its own PR. Until then a page
+  can be published from the submitter's own measurements as `Submitted` on
+  the public prompts (the Qwen3-Omni speech page does this) and skips the harness commands in steps 2 and 4.
 
 ## 1. Catalogue the model (`src/data/frontier.ts`)
 
@@ -25,8 +27,10 @@ Add the model to `MODELS` with its slug, display name and `workload`
 is hidden on the main page until a benchmark exists for it.
 
 If the workload is new, add it to `WORKLOADS` (section label, caption, quality
-key/name/method/format, latency axis/format) and add its quality key to the
-recipe schema in `src/data/schema.ts`. The UI reads every label from
+key/name/method/format and chart scales, latency axis/format/tick spacing),
+add its quality key to the recipe schema and its protocol to the
+`BenchmarkFileSchema` union in `src/data/schema.ts`, and its header rows to
+`protocolRows`. The UI reads every label from
 `WORKLOADS`; nothing else hard-codes a metric name.
 
 ## 2. Register the checkpoint (`bench/protocol.py`)
@@ -41,8 +45,10 @@ model needs a GPU residency other than the existing `OFFLOAD` entries
 
 ## 3. Write `benchmark.json`
 
-`data/benchmarks/<model>/<hardware>/benchmark.json`. Copy the FLUX one and
-change the values; the directory must be `<model>/<hardware>` exactly.
+`data/benchmarks/<model>/<hardware>/benchmark.json`. Copy the FLUX one (or the
+Qwen3-Omni one for speech, whose protocol has `decoding` and `output` instead
+of resolution, steps and guidance) and change the values; the directory must
+be `<model>/<hardware>` exactly.
 
 ```json
 {

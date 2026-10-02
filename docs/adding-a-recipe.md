@@ -1,7 +1,7 @@
 # Adding a recipe
 
 Scope: how one optimization recipe gets onto an existing benchmark page.
-Status: current · updated 2026-10-01.
+Status: current · updated 2026-10-02.
 
 A recipe is one engine configuration measured against the page's baseline.
 Field meanings are in [data-model.md](data-model.md); this page is the
@@ -98,7 +98,7 @@ the filename. This is the complete placeholder form; everything under
 }
 ```
 
-`technique` must be one of the eight in [data-model.md](data-model.md#recipesidjson);
+`technique` must be one of the nine in [data-model.md](data-model.md#recipesidjson);
 the display name is derived from the methods (`FP8 W8A8 + SageAttention2`), so
 there is no name field. Check that the harness resolves the recipe before
 touching a GPU:
@@ -162,12 +162,13 @@ deliberately closed lists; each is one edit plus one test:
 
 | to add                      | edit                                                                                  | test                                                                        |
 | --------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| a ninth technique           | the `TECHNIQUES` array in `src/data/schema.ts`                                        | `npm test` (a recipe using it loads)                                        |
+| a tenth technique           | the `TECHNIQUES` array in `src/data/schema.ts`                                        | `npm test` (a recipe using it loads)                                        |
 | a fourth config shape       | an `elif config.get("schema") == "<name>"` branch in `run_spec` (`bench/protocol.py`) | a `run_spec` case in `bench/tests/test_protocol.py`, like the existing ones |
 | an engine other than sglang | `render.py` (how a process loads and serves it) and the `engine` block of the recipe  | a smoke run; `score.py` and `emit.py` are engine-agnostic                   |
 
 `method` is free text, so a new technique is only needed when none of the
-eight describes the mechanism. Techniques stay a closed list so names cannot
+nine describes the mechanism (Stage Scheduling was the ninth, added with the
+Qwen3-Omni page for its serving changes). Techniques stay a closed list so names cannot
 drift between pages ([decisions.md](decisions.md#recipes)). A new quality
 metric or workload is a model-level change: see
 [adding-a-model.md](adding-a-model.md#1-catalogue-the-model-srcdatafrontierts).

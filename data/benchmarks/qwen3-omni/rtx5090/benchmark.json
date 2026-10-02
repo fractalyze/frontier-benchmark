@@ -1,0 +1,22 @@
+{
+  "model": "qwen3-omni",
+  "hardware": "rtx5090",
+  "workload": "speech",
+  "protocol": {
+    "version": "v0.1",
+    "batch": 1,
+    "precision": "AWQ W4A16 (cyankiwi/Qwen3-Omni-30B-A3B-Instruct-AWQ-4bit, snapshot d6e1eff8)",
+    "decoding": "greedy (temperature 0, top_k -1, repetition penalty 1.1), seed 42",
+    "output": "text + 24 kHz speech, streamed"
+  },
+  "promptSets": {
+    "public": {
+      "name": "speech-v1",
+      "count": 3,
+      "path": "data/prompts/qwen3-omni-speech-v1.json"
+    },
+    "held-out": null
+  },
+  "timing": "time to first audio: request sent to the first audio chunk of the streamed reply, one request at a time, median over 3 prompts × 5 repeats after one warm-up; all recipes served back to back in one session from one venv",
+  "baselineRecipe": "vllm-omni-native"
+}

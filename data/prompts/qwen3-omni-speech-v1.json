@@ -1,0 +1,42 @@
+{
+  "schema": "speech-prompts-v1",
+  "note": "the three chat prompts of fractalyze/decode-mk@d48ef71a control/qwen3omni/bench.py; each is one user message, answered in text and streamed 24 kHz speech",
+  "source": "https://github.com/fractalyze/decode-mk/blob/d48ef71a/control/qwen3omni/bench.py",
+  "settings": {
+    "seed": 42,
+    "modalities": ["text", "audio"],
+    "stream": true
+  },
+  "prompts": [
+    {
+      "pair_id": "speech-v1:0",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Tell me a short story, about six sentences long, about a lighthouse keeper who finds a message in a bottle."
+        }
+      ],
+      "seed": 42
+    },
+    {
+      "pair_id": "speech-v1:1",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Explain in about five sentences why the sky is blue, as if talking to a curious ten year old."
+        }
+      ],
+      "seed": 42
+    },
+    {
+      "pair_id": "speech-v1:2",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Describe your ideal weekend morning in about five relaxed sentences."
+        }
+      ],
+      "seed": 42
+    }
+  ]
+}

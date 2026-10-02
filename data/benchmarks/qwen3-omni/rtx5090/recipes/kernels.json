@@ -1,0 +1,57 @@
+{
+  "id": "kernels",
+  "engine": {
+    "name": "vLLM-Omni (fractalyze fork)",
+    "version": "379804a6",
+    "url": "https://github.com/fractalyze/vllm-omni/tree/379804a68ea8aa77f703992d00961e884ebbe5f7"
+  },
+  "optimization": [
+    {
+      "technique": "Kernel Optimization",
+      "method": "thinker, talker, code-predictor megakernels"
+    },
+    {
+      "technique": "Compilation",
+      "method": "compiled code2wav"
+    },
+    {
+      "technique": "Stage Scheduling",
+      "method": "early talker and frame 0"
+    },
+    {
+      "technique": "Stage Scheduling",
+      "method": "event-driven stages"
+    }
+  ],
+  "configuration": [
+    "thinker decode steps on one kernel launch of 64 CTAs, its 2–64-token prompt chunks on a prefill kernel of 128 CTAs (VLLM_OMNI_THINKER_MEGAKERNEL=1, VLLM_OMNI_THINKER_MEGAKERNEL_CTAS=64, VLLM_OMNI_THINKER_MEGAKERNEL_PREFILL=1, VLLM_OMNI_THINKER_MEGAKERNEL_PREFILL_CTAS=128)",
+    "talker decode steps on the talker kernel (VLLM_OMNI_TALKER_MEGAKERNEL=1)",
+    "every code-predictor call on one kernel launch of 96 CTAs (VLLM_OMNI_CODE_PREDICTOR_MEGAKERNEL=1, VLLM_OMNI_CODE_PREDICTOR_MEGAKERNEL_CTAS=96)",
+    "VLLM_OMNI_DETERMINISTIC_MARLIN=1 is set but idle: the thinker runs on triton, keeping the checkpoint's packing for its kernels",
+    "code2wav on CUDA graphs captured only at streaming sizes, its one-frame first chunk on torch.compile (VLLM_OMNI_CODE2WAV_STREAM_GRAPHS=1, VLLM_OMNI_CODE2WAV_COMPILE=1)",
+    "frame 0 ships with the talker's prefill step, is decoded on code2wav's weights and sent straight to the API (VLLM_OMNI_FRAME0=1, VLLM_OMNI_FRAME0_AUDIO=1)",
+    "the talker gets its prefill input at the thinker's first token, built without host syncs, and prefills all but its last position while the thinker prefills (VLLM_OMNI_EARLY_CHUNK=1, VLLM_OMNI_TALKER_PREP=1, VLLM_OMNI_TALKER_PREPREFILL=1)",
+    "the thinker waits while the talker makes frame 0; a stage wakes when an upstream chunk lands instead of on a 1 ms poll (VLLM_OMNI_THINKER_YIELD=1, VLLM_OMNI_FAST_POLL=1)",
+    "event-driven stage orchestration (VLLM_OMNI_EVENT_DRIVEN_ORCH=1)",
+    "the three stages share the GPU under CUDA MPS",
+    "PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+  ],
+  "configPath": "data/benchmarks/qwen3-omni/rtx5090/configs/kernels.yaml",
+  "metrics": {
+    "latencyS": 0.023,
+    "peakVramGb": null,
+    "lpips": null,
+    "wer": {
+      "mean": -0.0058,
+      "max": 0.003
+    },
+    "psnr": null,
+    "ssim": null,
+    "imageReward": null
+  },
+  "status": "Submitted",
+  "measuredOn": "public",
+  "date": "2026-10-02",
+  "sourceUrl": "https://github.com/fractalyze/vllm-omni/blob/9122317a9f62fff0bec41ebda94662020f73109c/showcase/qwen3omni/measurements.md",
+  "pr": null
+}

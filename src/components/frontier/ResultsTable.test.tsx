@@ -140,3 +140,47 @@ describe("ResultsTable", () => {
     expect(onClose).toHaveBeenCalled();
   });
 });
+
+describe("ResultsTable on the speech page", () => {
+  const omni = findBenchmark("qwen3-omni", "rtx5090")!;
+  const renderOmni = (openId: string | null = null) =>
+    render(
+      <ResultsTable
+        bench={omni}
+        limit={0.005}
+        selectedId={null}
+        openId={openId}
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+  it("shows signed ΔWER, zero for the baseline, and milliseconds", () => {
+    renderOmni();
+    const rows = screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((r) =>
+        within(r)
+          .getAllByRole("cell")
+          .slice(0, 3)
+          .map((c) => c.textContent),
+      );
+    expect(rows).toEqual([
+      ["23 ms", "−0.58 pp", "9.3×"],
+      ["42 ms", "+1.05 pp", "5.1×"],
+      ["213 ms", "0", "1.0×"],
+    ]);
+  });
+
+  it("leaves out the image-only tiles in the detail dialog", () => {
+    renderOmni("kernels");
+    const dialog = screen.getByRole("dialog");
+    expect(cellOf("ΔWER mean")).toHaveTextContent("−0.58 pp");
+    expect(within(dialog).getByText("max +0.30 pp over the set")).toBeInTheDocument();
+    expect(cellOf("Peak VRAM")).toHaveTextContent(/^—$/);
+    for (const label of ["ImageReward", "PSNR", "SSIM"])
+      expect(within(dialog).queryByText(label)).toBeNull();
+    expect(within(dialog).getByText("Submitted")).toBeInTheDocument();
+  });
+});

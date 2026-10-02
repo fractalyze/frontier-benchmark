@@ -1,0 +1,54 @@
+{
+  "id": "deterministic-marlin",
+  "engine": {
+    "name": "vLLM-Omni (fractalyze fork)",
+    "version": "379804a6",
+    "url": "https://github.com/fractalyze/vllm-omni/tree/379804a68ea8aa77f703992d00961e884ebbe5f7"
+  },
+  "optimization": [
+    {
+      "technique": "Kernel Optimization",
+      "method": "deterministic Marlin MoE"
+    },
+    {
+      "technique": "Kernel Optimization",
+      "method": "code-predictor megakernel"
+    },
+    {
+      "technique": "Stage Scheduling",
+      "method": "early frame 0"
+    },
+    {
+      "technique": "Stage Scheduling",
+      "method": "event-driven stages"
+    }
+  ],
+  "configuration": [
+    "thinker MoE on Marlin with each expert's rows sorted before a prefill's grouped GEMM, so identical requests give the same bits (VLLM_OMNI_DETERMINISTIC_MARLIN=1)",
+    "every code-predictor call on one kernel launch of 96 CTAs (VLLM_OMNI_CODE_PREDICTOR_MEGAKERNEL=1, VLLM_OMNI_CODE_PREDICTOR_MEGAKERNEL_CTAS=96)",
+    "VLLM_OMNI_CODE2WAV_STREAM_GRAPHS=1; the deploy config keeps code2wav eager (enforce_eager: true)",
+    "the talker's first audio frame ships with its prefill step (VLLM_OMNI_FRAME0=1)",
+    "event-driven stage orchestration (VLLM_OMNI_EVENT_DRIVEN_ORCH=1)",
+    "first audio chunk after one codec frame instead of four (initial_codec_chunk_frames: 1 in the deploy config)",
+    "the three stages share the GPU under CUDA MPS",
+    "PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+  ],
+  "configPath": "data/benchmarks/qwen3-omni/rtx5090/configs/control_marlin.yaml",
+  "metrics": {
+    "latencyS": 0.042,
+    "peakVramGb": null,
+    "lpips": null,
+    "wer": {
+      "mean": 0.0105,
+      "max": 0.019
+    },
+    "psnr": null,
+    "ssim": null,
+    "imageReward": null
+  },
+  "status": "Submitted",
+  "measuredOn": "public",
+  "date": "2026-10-02",
+  "sourceUrl": "https://github.com/fractalyze/vllm-omni/blob/9122317a9f62fff0bec41ebda94662020f73109c/showcase/qwen3omni/measurements.md",
+  "pr": null
+}

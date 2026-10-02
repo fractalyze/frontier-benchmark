@@ -82,6 +82,63 @@ describe("schema rejects", () => {
   });
 });
 
+describe("speech", () => {
+  const SPEECH = "/benchmarks/qwen3-omni/rtx5090";
+  const benchFile = () => structuredClone(files[`${SPEECH}/benchmark.json`]!);
+  const protocolOf = (b: Json) => b["protocol"] as Json;
+  const kernels = () => structuredClone(files[`${SPEECH}/recipes/kernels.json`]!);
+
+  it("takes its own protocol: decoding and output, no resolution, steps or guidance", () => {
+    expect(BenchmarkFileSchema.safeParse(benchFile()).success).toBe(true);
+    for (const [k, v] of [
+      ["resolution", "1024x1024"],
+      ["steps", 50],
+      ["guidance", 4],
+      ["attention", "torch_sdpa"],
+      ["offload", "none"],
+    ] as const) {
+      const b = benchFile();
+      protocolOf(b)[k] = v;
+      expect(BenchmarkFileSchema.safeParse(b).success, k).toBe(false);
+    }
+    const b = benchFile();
+    delete protocolOf(b)["decoding"];
+    expect(BenchmarkFileSchema.safeParse(b).success).toBe(false);
+  });
+
+  it("keeps the image protocol for image pages: no decoding or output", () => {
+    const b = structuredClone(files[`${DEMO}/benchmark.json`]!);
+    protocolOf(b)["decoding"] = "greedy";
+    expect(BenchmarkFileSchema.safeParse(b).success).toBe(false);
+  });
+
+  it("rejects a speech protocol on an image page", () => {
+    const b = structuredClone(files[`${DEMO}/benchmark.json`]!);
+    b["protocol"] = protocolOf(benchFile());
+    expect(BenchmarkFileSchema.safeParse(b).success).toBe(false);
+  });
+
+  it("accepts a signed wer: a recipe can make fewer errors than the baseline", () => {
+    const r = kernels();
+    expect(metricsOf(r)["wer"]).toEqual({ mean: -0.0058, max: 0.003 });
+    expect(RecipeFileSchema.safeParse(r).success).toBe(true);
+    metricsOf(r)["wer"] = { mean: -0.01, max: -0.002 };
+    expect(RecipeFileSchema.safeParse(r).success).toBe(true);
+  });
+
+  it("still rejects a negative lpips", () => {
+    const r = structuredClone(recipeIn(files, "dpcache-k20"));
+    metricsOf(r)["lpips"] = { mean: -0.01, max: 0.02 };
+    expect(RecipeFileSchema.safeParse(r).success).toBe(false);
+  });
+
+  it("requires wer on a non-baseline speech recipe", () => {
+    const f = clone();
+    metricsOf(f[`${SPEECH}/recipes/kernels.json`]!)["wer"] = null;
+    expect(() => buildBenchmarks(f)).toThrow(/kernels\.json: non-baseline recipe is missing wer/);
+  });
+});
+
 describe("loader rejects", () => {
   it("non-baseline with null lpips", () => {
     const f = clone();

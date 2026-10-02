@@ -1,0 +1,31 @@
+{
+  "id": "vllm-omni-native",
+  "engine": {
+    "name": "vLLM-Omni",
+    "version": "69de153f",
+    "url": "https://github.com/vllm-project/vllm-omni/tree/69de153f6e2db7454021d4966d641e50a96d0212"
+  },
+  "optimization": [],
+  "configuration": [
+    "thinker MoE on triton",
+    "deploy config: decode-mk's control/qwen3omni/production.yaml (d48ef71a), which is vLLM-Omni's own Qwen3-Omni deploy (written for two H100s) with every stage on one GPU and only the memory, length and batch limits it takes to fit 32 GB",
+    "thinker, talker and code2wav share the GPU without CUDA MPS",
+    "code2wav eager",
+    "PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+  ],
+  "configPath": null,
+  "metrics": {
+    "latencyS": 0.213,
+    "peakVramGb": null,
+    "lpips": null,
+    "wer": null,
+    "psnr": null,
+    "ssim": null,
+    "imageReward": null
+  },
+  "status": "Submitted",
+  "measuredOn": "public",
+  "date": "2026-10-02",
+  "sourceUrl": "https://github.com/fractalyze/vllm-omni/blob/9122317a9f62fff0bec41ebda94662020f73109c/showcase/qwen3omni/measurements.md",
+  "pr": null
+}

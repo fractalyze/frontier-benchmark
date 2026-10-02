@@ -13,6 +13,7 @@ export const TECHNIQUES = [
   "Kernel Optimization",
   "Compilation",
   "Parallelism",
+  "Stage Scheduling",
 ] as const;
 export const STATUSES = ["Verified", "Submitted", "Experimental"] as const;
 /** What a benchmark's output is; decides the quality and latency axes (see WORKLOADS). */
@@ -36,35 +37,57 @@ const isoDate = z
     return !Number.isNaN(t) && new Date(t).toISOString().startsWith(s);
   }, "not a calendar date");
 
-export const BenchmarkFileSchema = z
+/** How an image or a video is generated; every recipe on the page runs under it. */
+const imageProtocol = z
   .object({
-    model: text,
-    hardware: text,
-    workload: z.enum(WORKLOAD_SLUGS),
-    protocol: z
-      .object({
-        version: text,
-        resolution: z.string().regex(/^\d+x\d+$/, "expected WxH"),
-        batch: posInt,
-        steps: posInt,
-        precision: text,
-        guidance: nonneg,
-        attention: text,
-        offload: text,
-      })
-      .strict(),
-    promptSets: z
-      .object({
-        // Keys match the MEASURED_ON values so a recipe's measuredOn indexes this object directly.
-        public: z.object({ name: text, count: posInt, path: repoPath }).strict(),
-        "held-out": z.object({ name: text, count: posInt }).strict().nullable(),
-      })
-      .strict(),
-    /** How latency was taken, in words; the harness fills it in. */
-    timing: text,
-    baselineRecipe: slug,
+    version: text,
+    resolution: z.string().regex(/^\d+x\d+$/, "expected WxH"),
+    batch: posInt,
+    steps: posInt,
+    precision: text,
+    guidance: nonneg,
+    attention: text,
+    offload: text,
   })
   .strict();
+
+/** How a spoken reply is generated: no resolution, steps or guidance. */
+const speechProtocol = z
+  .object({
+    version: text,
+    batch: posInt,
+    precision: text,
+    /** Sampling of the reply, e.g. "greedy (...), seed 42". */
+    decoding: text,
+    /** What a request returns, e.g. "text + 24 kHz speech, streamed". */
+    output: text,
+  })
+  .strict();
+
+const benchmarkFields = {
+  model: text,
+  hardware: text,
+  promptSets: z
+    .object({
+      // Keys match the MEASURED_ON values so a recipe's measuredOn indexes this object directly.
+      public: z.object({ name: text, count: posInt, path: repoPath }).strict(),
+      "held-out": z.object({ name: text, count: posInt }).strict().nullable(),
+    })
+    .strict(),
+  /** How latency was taken, in words; the harness fills it in. */
+  timing: text,
+  baselineRecipe: slug,
+};
+
+/** The protocol's shape depends on the workload, so the file is a union on `workload`. */
+export const BenchmarkFileSchema = z.discriminatedUnion("workload", [
+  z
+    .object({ ...benchmarkFields, workload: z.enum(["image", "video"]), protocol: imageProtocol })
+    .strict(),
+  z
+    .object({ ...benchmarkFields, workload: z.literal("speech"), protocol: speechProtocol })
+    .strict(),
+]);
 
 export const RecipeFileSchema = z
   .object({
@@ -79,8 +102,11 @@ export const RecipeFileSchema = z
         peakVramGb: pos.nullable(),
         /** Image / video quality loss vs the baseline output (mean and max over the set). */
         lpips: z.object({ mean: nonneg, max: nonneg }).strict().nullable(),
-        /** Speech quality loss vs the baseline: word-error-rate increase (mean and max). */
-        wer: z.object({ mean: nonneg, max: nonneg }).strict().nullable().optional(),
+        /**
+         * Speech quality loss vs the baseline: recipe WER minus baseline WER, as a fraction.
+         * Signed: a recipe can make fewer errors than the baseline (mean < 0).
+         */
+        wer: z.object({ mean: z.number(), max: z.number() }).strict().nullable().optional(),
         psnr: z.object({ mean: pos, min: pos }).strict().nullable(),
         ssim: z
           .object({ mean: z.number().min(0).max(1) })

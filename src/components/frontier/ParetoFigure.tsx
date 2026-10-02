@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  WORKLOADS,
   fmtLatency,
   fmtLoss,
   lossOf,
@@ -22,23 +23,33 @@ const layout = (width: number) => {
     showTag: !narrow,
   };
 };
-/** Arrow keys move the requirement line by this much; a drag is continuous (0.001). */
-export const LIMIT_STEP = 0.005;
-const LIMIT_MIN = 0.001;
+/** Arrow keys move an image page's requirement line by this much; a drag is continuous
+    (0.001). Every scale comes from the workload: see `quality` and `latency` in WORKLOADS. */
+export const LIMIT_STEP = WORKLOADS.image.quality.limitStep;
 /** Left/right arrow keys slide the grip along the line by this fraction of its length. */
 const GRIP_STEP = 0.05;
 const GRIP_W = 30;
 
 const clampTo = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
-const round3 = (v: number) => +v.toFixed(3);
-const X_STEP = 2;
+const roundTo = (v: number, digits: number) => +v.toFixed(digits);
+const ceilTo = (v: number, digits: number) => Math.ceil(v * 10 ** digits) / 10 ** digits;
 
 /** Latency axis [min, max]: starts below the fastest recipe, on a tick, not at zero. */
-export function xDomain(latencies: number[]): [number, number] {
+export function xDomain(
+  latencies: number[],
+  step = WORKLOADS.image.latency.step,
+): [number, number] {
   const lo = Math.min(...latencies);
   const hi = Math.max(...latencies);
-  const min = Math.max(0, Math.floor((lo - (hi - lo) * 0.12) / X_STEP) * X_STEP);
+  const min = Math.max(0, Math.floor((lo - (hi - lo) * 0.12) / step) * step);
   return [min, hi + (hi - min) * 0.08];
+}
+
+/** Loss axis [min, max]: from zero, or below the lowest loss when a recipe beats the baseline. */
+function yDomain(losses: number[], span: number): [number, number] {
+  const lo = Math.min(0, ...losses);
+  const hi = Math.max(span, ...losses);
+  return [lo < 0 ? lo - (hi - lo) * 0.12 : 0, hi * 1.12];
 }
 
 export function ParetoFigure({
@@ -75,26 +86,31 @@ export function ParetoFigure({
   const { W, H, PAD, showTag } = layout(width);
   const workload = workloadOf(bench);
   const loss = (r: Recipe) => lossOf(bench, r);
-  const { xMin, xMax, yMax, frontier, frontierIds } = useMemo(() => {
+  const { quality, latency } = workload;
+  const { xMin, xMax, yMin, yMax, frontier, frontierIds } = useMemo(() => {
     const f = paretoFrontier(bench);
-    const [xMin, xMax] = xDomain(recipes.map((r) => r.metrics.latencyS));
-    return {
-      xMin,
-      xMax,
-      yMax: Math.max(0.1, ...recipes.map((r) => lossOf(bench, r))) * 1.12,
-      frontier: f,
-      frontierIds: new Set(f.map((r) => r.id)),
-    };
-  }, [bench, recipes]);
+    const [xMin, xMax] = xDomain(
+      recipes.map((r) => r.metrics.latencyS),
+      latency.step,
+    );
+    const [yMin, yMax] = yDomain(
+      recipes.map((r) => lossOf(bench, r)),
+      quality.span,
+    );
+    return { xMin, xMax, yMin, yMax, frontier: f, frontierIds: new Set(f.map((r) => r.id)) };
+  }, [bench, recipes, latency.step, quality.span]);
 
   const x = (v: number) => PAD.l + ((v - xMin) / (xMax - xMin)) * (W - PAD.l - PAD.r);
-  const y = (v: number) => H - PAD.b - (v / yMax) * (H - PAD.t - PAD.b);
-  const fromY = (py: number) => ((H - PAD.b - py) / (H - PAD.t - PAD.b)) * yMax;
-  const xTicks = ticks(xMax, X_STEP).filter((t) => t >= xMin);
-  const yTicks = ticks(yMax, 0.02);
+  const y = (v: number) => H - PAD.b - ((v - yMin) / (yMax - yMin)) * (H - PAD.t - PAD.b);
+  const fromY = (py: number) => yMin + ((H - PAD.b - py) / (H - PAD.t - PAD.b)) * (yMax - yMin);
+  const xTicks = ticks(xMin, xMax, latency.step);
+  const yTicks = ticks(yMin, yMax, quality.step);
   const labelled = new Set([bench.baselineRecipe, selectedId ?? ""]);
-  const limitMax = round3(yMax - LIMIT_STEP);
-  const clampLimit = (v: number) => clampTo(round3(v), LIMIT_MIN, limitMax);
+  // The limit stays inside the plot: never below the axis (or the workload's floor), and one
+  // step below its top.
+  const limitMin = Math.max(quality.limitMin, ceilTo(yMin, quality.digits));
+  const limitMax = roundTo(yMax - quality.limitStep, quality.digits);
+  const clampLimit = (v: number) => clampTo(roundTo(v, quality.digits), limitMin, limitMax);
 
   /** Pointer position in SVG user units; null when the SVG is not laid out (tests). */
   const pointerInSvg = (e: React.PointerEvent) => {
@@ -153,7 +169,7 @@ export function ParetoFigure({
               textAnchor="end"
               className="num fill-muted-foreground text-[12px]"
             >
-              {t === 0 ? "0" : fmtLoss(bench, t)}
+              {t === 0 ? "0" : quality.tick(t)}
             </text>
           </g>
         ))}
@@ -166,7 +182,7 @@ export function ParetoFigure({
               textAnchor="middle"
               className="num fill-muted-foreground text-[12px]"
             >
-              {t}
+              {latency.tick(t)}
             </text>
           </g>
         ))}
@@ -178,6 +194,17 @@ export function ParetoFigure({
           className="stroke-border-strong"
         />
         <line x1={PAD.l} x2={PAD.l} y1={PAD.t} y2={H - PAD.b} className="stroke-border-strong" />
+        {/* a signed loss: zero (the baseline's own quality) is not the bottom of the axis */}
+        {yMin < 0 && (
+          <line
+            x1={PAD.l}
+            x2={W - PAD.r}
+            y1={y(0)}
+            y2={y(0)}
+            className="stroke-border-strong"
+            data-testid="zero-line"
+          />
+        )}
         <text
           x={(W + PAD.l) / 2}
           y={H - 10}
@@ -191,7 +218,7 @@ export function ParetoFigure({
           textAnchor="middle"
           className="fill-muted-foreground text-[13px]"
         >
-          {`Quality loss (${workload.quality.name})`}
+          {quality.axis}
         </text>
         <text
           x={PAD.l + 12}
@@ -293,7 +320,7 @@ export function ParetoFigure({
             tabIndex={0}
             aria-label={`Quality limit: maximum acceptable ${workload.quality.name}`}
             aria-orientation="vertical"
-            aria-valuemin={LIMIT_MIN}
+            aria-valuemin={limitMin}
             aria-valuemax={limitMax}
             aria-valuenow={limit}
             aria-valuetext={tag}
@@ -308,7 +335,7 @@ export function ParetoFigure({
               if (e.currentTarget.hasPointerCapture(e.pointerId)) dragGrip(e);
             }}
             onKeyDown={(e) => {
-              const step = e.shiftKey ? LIMIT_STEP * 4 : LIMIT_STEP;
+              const step = quality.limitStep * (e.shiftKey ? 4 : 1);
               if (e.key === "ArrowUp") nudge(step);
               else if (e.key === "ArrowDown") nudge(-step);
               else if (e.key === "ArrowRight") moveGrip(gripFrac + GRIP_STEP);
@@ -370,8 +397,10 @@ export function ParetoFigure({
   );
 }
 
-function ticks(max: number, step: number) {
+/** Multiples of step within [min, max]. */
+function ticks(min: number, max: number, step: number) {
   const out: number[] = [];
-  for (let v = 0; v <= max + 1e-9; v += step) out.push(+v.toFixed(4));
+  for (let k = Math.ceil(min / step - 1e-9); k * step <= max + 1e-9; k++)
+    out.push(+(k * step).toFixed(4));
   return out;
 }
