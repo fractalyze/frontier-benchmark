@@ -7,7 +7,8 @@ https://frontier-fractalyze.vercel.app (currently behind Vercel Authentication).
 
 Published pages: Qwen-Image 2.1 × RTX 5090 (10 recipes) and FLUX.2 [klein] 4B ×
 RTX 5090 (4 recipes), all `Verified` on a private held-out set with the harness
-in `bench/`.
+in `bench/`; Qwen3-Omni × RTX 5090 (speech, 3 recipes), `Submitted` on the
+public prompts until the harness can render and score speech.
 
 ## Docs
 

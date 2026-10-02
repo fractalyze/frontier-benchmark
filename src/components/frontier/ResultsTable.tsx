@@ -85,8 +85,16 @@ function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
   const m = r.metrics;
   const isBaseline = r.id === bench.baseline.id;
   const base = bench.baseline.metrics;
-  const quality = workloadOf(bench).quality;
+  const workload = workloadOf(bench);
+  const quality = workload.quality;
   const loss = m[quality.key];
+  const vram = (size: "lg" | "sm") => (
+    <Tile
+      size={size}
+      label="Peak VRAM"
+      value={m.peakVramGb ? `${m.peakVramGb.toFixed(1)} GB` : DASH}
+    />
+  );
   const run: [string, React.ReactNode][] = [
     [
       "Engine",
@@ -116,30 +124,32 @@ function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
           value={fmtLoss(bench, loss?.mean)}
           sub={isBaseline ? "reference output" : `max ${fmtLoss(bench, loss?.max)} over the set`}
         />
-        <Tile
-          label="ImageReward"
-          value={m.imageReward ? m.imageReward.mean.toFixed(2) : DASH}
-          sub={
-            isBaseline
-              ? "absolute, prompt vs image"
-              : `baseline ${base.imageReward ? base.imageReward.mean.toFixed(2) : DASH}`
-          }
-        />
+        {workload.imageScores ? (
+          <Tile
+            label="ImageReward"
+            value={m.imageReward ? m.imageReward.mean.toFixed(2) : DASH}
+            sub={
+              isBaseline
+                ? "absolute, prompt vs image"
+                : `baseline ${base.imageReward ? base.imageReward.mean.toFixed(2) : DASH}`
+            }
+          />
+        ) : (
+          vram("lg")
+        )}
       </dl>
-      <dl className="grid grid-cols-3 gap-5">
-        <Tile
-          size="sm"
-          label="PSNR"
-          value={m.psnr ? `${m.psnr.mean.toFixed(1)} dB` : DASH}
-          sub={m.psnr ? `min ${m.psnr.min.toFixed(1)} dB` : undefined}
-        />
-        <Tile size="sm" label="SSIM" value={m.ssim ? m.ssim.mean.toFixed(3) : DASH} />
-        <Tile
-          size="sm"
-          label="Peak VRAM"
-          value={m.peakVramGb ? `${m.peakVramGb.toFixed(1)} GB` : DASH}
-        />
-      </dl>
+      {workload.imageScores && (
+        <dl className="grid grid-cols-3 gap-5">
+          <Tile
+            size="sm"
+            label="PSNR"
+            value={m.psnr ? `${m.psnr.mean.toFixed(1)} dB` : DASH}
+            sub={m.psnr ? `min ${m.psnr.min.toFixed(1)} dB` : undefined}
+          />
+          <Tile size="sm" label="SSIM" value={m.ssim ? m.ssim.mean.toFixed(3) : DASH} />
+          {vram("sm")}
+        </dl>
+      )}
 
       <Section title="Recipe">
         {r.optimization.length ? (
@@ -162,7 +172,7 @@ function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
         <Section title="Configuration">
           <ul className="list-disc space-y-1 pl-4 text-[12.5px] leading-snug text-muted-foreground sm:columns-2 sm:gap-x-8">
             {r.configuration.map((line) => (
-              <li key={line} className="break-inside-avoid">
+              <li key={line} className="break-inside-avoid [overflow-wrap:anywhere]">
                 {line}
               </li>
             ))}
@@ -289,7 +299,9 @@ export function ResultsTable({
                 >
                   {fmtLatency(bench, r.metrics.latencyS)}
                 </td>
-                <td className="num py-2 pr-5 text-right">{fmtLoss(bench, lossOf(bench, r))}</td>
+                <td className="num py-2 pr-5 text-right whitespace-nowrap">
+                  {fmtLoss(bench, lossOf(bench, r))}
+                </td>
                 <td className="num py-2 pr-5 text-right">{speedup(bench, r).toFixed(1)}×</td>
                 <td className={cn("py-2 pr-5", sel ? "font-semibold" : "font-medium")}>{r.name}</td>
                 <td

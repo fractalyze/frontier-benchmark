@@ -1,7 +1,7 @@
 # Decisions
 
 Scope: what was settled, why, and what was rejected. Change a decision in a
-PR that updates this page. Status: current · updated 2026-10-01.
+PR that updates this page. Status: current · updated 2026-10-02.
 
 ## Benchmark
 
@@ -9,10 +9,11 @@ PR that updates this page. Status: current · updated 2026-10-01.
   quality loss ε against the baseline. The page shows the whole frontier and a
   draggable ε; nothing is ranked by a single score.
 - **Baseline** = the engine's native run under the page's protocol, BF16,
-  eager. Weights are never changed: distilled or fine-tuned checkpoints are not
+  eager (image). A speech page's baseline is the engine's own deploy of the
+  page's pinned checkpoint (Qwen3-Omni: AWQ 4-bit, stock vLLM-Omni). Weights are never changed: distilled or fine-tuned checkpoints are not
   recipes.
 - **Quality axis** = one loss against the baseline's output for the same
-  prompt and seed: LPIPS mean for image and video, WER increase for speech.
+  prompt and seed: LPIPS mean for image and video, ΔWER for speech.
   PSNR, SSIM and ImageReward are shown but never drive the frontier. Rejected:
   FID (needs a distribution, not a pair).
 - **Speed axis** = latency of one request. Rejected: throughput and
@@ -23,13 +24,29 @@ PR that updates this page. Status: current · updated 2026-10-01.
   set by the submitter (definitions in
   [data-model.md](data-model.md#status-and-prompt-sets)). This is what stops a
   recipe from being tuned to the prompts it is scored on.
+- **ΔWER is signed** (2026-10-02): recipe WER minus baseline WER, each reply's
+  audio scored against its own text. A recipe can make fewer transcription
+  errors than the baseline (Qwen3-Omni `kernels`: −0.58 pp), and clipping that
+  at zero would hide a real measurement. LPIPS stays nonnegative.
+- **Protocol is per workload** (2026-10-02): `benchmark.json` is a union on
+  `workload`; image and video keep resolution/steps/guidance/attention/offload,
+  speech has `decoding` and `output`. Rejected: one protocol with optional
+  fields (a speech page would silently accept image-only fields).
+- **Speech pages are `Submitted`** until `bench/` can render and score speech:
+  the harness is image-only, so nothing on a speech page is re-measured on a
+  held-out set yet.
 - **Protocol version** is per benchmark (`v0.5` for Qwen-Image 2.1, `v0.1` for
   FLUX.2 klein) and bumps when the protocol changes.
 
 ## Recipes
 
 - **Recipe = engine + list of {technique, method}** from a closed list of
-  eight techniques. Names are derived from methods so they cannot drift.
+  nine techniques. Names are derived from methods so they cannot drift.
+- **Stage Scheduling** (2026-10-02) is the ninth technique: when the stages of
+  a multi-stage pipeline (Qwen3-Omni's thinker, talker and code2wav) run and
+  hand data on — early first chunk, frame 0 with the prefill, pre-prefill,
+  thinker yield, fast poll, event-driven orchestration. None of the eight
+  described it: they change one stage's math or kernels, not the hand-offs.
 - **SageAttention2 is tagged Quantization** (INT8 QK, FP8 PV attention), not
   Sparse Attention. Open since 2026-10-01: Kernel Optimization was proposed as
   the tag instead; the six recipes that list it keep Quantization until that

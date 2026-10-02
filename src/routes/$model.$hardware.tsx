@@ -5,12 +5,13 @@ import {
   findBenchmark,
   fmtLatency,
   fmtLoss,
-  fmtResolution,
   hardwareBySlug,
   lossOf,
   modelBySlug,
+  protocolRows,
   speedup,
   workloadOf,
+  type Benchmark,
 } from "@/data/frontier";
 import { REPO_URL } from "@/data/site";
 import { SiteShell } from "@/components/frontier/SiteShell";
@@ -49,12 +50,17 @@ export const Route = createFileRoute("/$model/$hardware")({
       </p>
     </SiteShell>
   ),
-  component: BenchmarkPage,
+  component: BenchmarkRoute,
 });
 
-function BenchmarkPage() {
+/** Keyed by workload: moving to a page with another quality scale starts from its own limit. */
+function BenchmarkRoute() {
   const { bench } = Route.useLoaderData();
-  const [limit, setLimit] = useState(0.05);
+  return <BenchmarkPage key={bench.workload} bench={bench} />;
+}
+
+function BenchmarkPage({ bench }: { bench: Benchmark }) {
+  const [limit, setLimit] = useState(workloadOf(bench).quality.defaultLimit);
   const [picked, setPicked] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -79,13 +85,7 @@ function BenchmarkPage() {
         <IdentitySelect model={bench.model} hardware={bench.hardware} />
         <dl className="num mt-4 flex flex-wrap gap-x-7 gap-y-2">
           {[
-            ["Resolution", fmtResolution(bench.protocol.resolution)],
-            ["Batch", bench.protocol.batch],
-            ["Steps", bench.protocol.steps],
-            ["Precision", bench.protocol.precision],
-            ["Guidance", bench.protocol.guidance],
-            ["Attention", bench.protocol.attention],
-            ["Offload", bench.protocol.offload],
+            ...protocolRows(bench),
             ["Protocol", bench.protocol.version],
             ["Prompts", `${bench.promptSets.public.count} public`],
             ["Updated", bench.updated],

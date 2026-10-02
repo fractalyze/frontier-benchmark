@@ -7,8 +7,10 @@ import {
   fmtLatency,
   fmtLoss,
   fmtLpips,
+  fmtPp,
   lossOf,
   paretoFrontier,
+  protocolRows,
   speedup,
   WORKLOADS,
   buildBenchmarks,
@@ -23,6 +25,7 @@ describe("BENCHMARKS (loaded from data/benchmarks via import.meta.glob)", () => 
     expect(BENCHMARKS.map((b) => `${b.model}/${b.hardware}`)).toEqual([
       "flux-2-klein-4b/rtx5090",
       "qwen-image-2.1/rtx5090",
+      "qwen3-omni/rtx5090",
     ]);
     expect(bench.model).toBe("qwen-image-2.1");
     expect(bench.hardware).toBe("rtx5090");
@@ -33,7 +36,22 @@ describe("BENCHMARKS (loaded from data/benchmarks via import.meta.glob)", () => 
     const flux = findBenchmark("flux-2-klein-4b", "rtx5090")!;
     expect(flux.baseline.id).toBe("sglang-native");
     expect(flux.recipes).toHaveLength(4);
-    expect(flux.protocol.steps).toBe(50);
+    expect(flux.protocol).toMatchObject({ steps: 50 });
+  });
+
+  it("loads the qwen3-omni / rtx5090 speech benchmark with its 3 recipes", () => {
+    const omni = findBenchmark("qwen3-omni", "rtx5090")!;
+    expect(omni.workload).toBe("speech");
+    expect(omni.baseline.id).toBe("vllm-omni-native");
+    expect(omni.recipes.map((r) => r.id)).toEqual([
+      "deterministic-marlin",
+      "kernels",
+      "vllm-omni-native",
+    ]);
+    expect(omni.recipes.every((r) => r.status === "Submitted" && r.measuredOn === "public")).toBe(
+      true,
+    );
+    expect(omni.updated).toBe("2026-10-02");
   });
 
   it("derives baseline and updated", () => {
@@ -56,21 +74,13 @@ describe("lossOf", () => {
     expect(lossOf(bench, byId("dpcache-k20"))).toBe(0.0113);
   });
 
-  it("reads wer on a speech benchmark and formats latency in milliseconds", () => {
-    const speech = {
-      ...bench,
-      workload: "speech" as const,
-      recipes: [
-        { ...bench.baseline, metrics: { ...bench.baseline.metrics, latencyS: 0.42 } },
-        {
-          ...byId("dpcache-k20"),
-          metrics: { ...byId("dpcache-k20").metrics, lpips: null, wer: { mean: 0.02, max: 0.05 } },
-        },
-      ],
-    };
-    expect(lossOf(speech, speech.recipes[1]!)).toBe(0.02);
-    expect(fmtLoss(speech, 0.02)).toBe(".020");
-    expect(fmtLatency(speech, 0.42)).toBe("420 ms");
+  it("reads the signed wer on the speech benchmark and formats latency in milliseconds", () => {
+    const omni = findBenchmark("qwen3-omni", "rtx5090")!;
+    const kernels = omni.recipes.find((r) => r.id === "kernels")!;
+    expect(lossOf(omni, omni.baseline)).toBe(0);
+    expect(lossOf(omni, kernels)).toBe(-0.0058);
+    expect(fmtLoss(omni, -0.0058)).toBe("−0.58 pp");
+    expect(fmtLatency(omni, 0.213)).toBe("213 ms");
     expect(fmtLatency(bench, 13.578)).toBe("13.6s");
     expect(WORKLOADS.speech.quality.name).toBe("ΔWER");
   });
@@ -90,6 +100,23 @@ describe("paretoFrontier", () => {
 
   it("includes the baseline as the last point", () => {
     expect(paretoFrontier(bench).at(-1)?.id).toBe("sglang-native");
+  });
+
+  it("puts a recipe that beats the baseline on both axes alone on the speech frontier", () => {
+    const omni = findBenchmark("qwen3-omni", "rtx5090")!;
+    // kernels: 23 ms at ΔWER −0.58 pp. The Marlin arm (42 ms, +1.05 pp) and the baseline
+    // (213 ms, 0) are both slower with more errors, so neither is on the frontier.
+    expect(paretoFrontier(omni).map((r) => [r.id, lossOf(omni, r)])).toEqual([
+      ["kernels", -0.0058],
+    ]);
+    expect(fastestUnder(omni, WORKLOADS.speech.quality.defaultLimit)?.id).toBe("kernels");
+    expect(fastestUnder(omni, -0.006)).toBeNull();
+    expect(
+      speedup(
+        omni,
+        omni.recipes.find((r) => r.id === "kernels")!,
+      ),
+    ).toBeCloseTo(9.26, 2);
   });
 
   it("does not mutate its input", () => {
@@ -118,8 +145,19 @@ describe("workloads", () => {
   it("rejects a benchmark whose workload disagrees with its model's", () => {
     const { recipes: _r, baseline, updated: _u, ...file } = bench;
     const { name: _n, ...baselineFile } = baseline;
+    const speechProtocol = {
+      version: "v0.1",
+      batch: 1,
+      precision: "x",
+      decoding: "x",
+      output: "x",
+    };
     const files = {
-      "x/qwen-image-2.1/rtx5090/benchmark.json": { ...file, workload: "speech" },
+      "x/qwen-image-2.1/rtx5090/benchmark.json": {
+        ...file,
+        workload: "speech",
+        protocol: speechProtocol,
+      },
       "x/qwen-image-2.1/rtx5090/recipes/sglang-native.json": baselineFile,
     };
     expect(() => buildBenchmarks(files)).toThrow(
@@ -132,6 +170,41 @@ describe("speedup", () => {
   it("is baseline latency over recipe latency", () => {
     expect(speedup(bench, bench.baseline)).toBe(1);
     expect(speedup(bench, byId("dpcache-k20"))).toBeCloseTo(1.923, 2);
+  });
+});
+
+describe("protocolRows", () => {
+  it("lists each workload's own protocol fields", () => {
+    expect(protocolRows(bench).map(([k]) => k)).toEqual([
+      "Resolution",
+      "Batch",
+      "Steps",
+      "Precision",
+      "Guidance",
+      "Attention",
+      "Offload",
+    ]);
+    expect(protocolRows(bench)[0]).toEqual(["Resolution", "1024×1024"]);
+    const omni = findBenchmark("qwen3-omni", "rtx5090")!;
+    expect(protocolRows(omni)).toEqual([
+      ["Output", "text + 24 kHz speech, streamed"],
+      ["Batch", 1],
+      ["Precision", "AWQ W4A16 (cyankiwi/Qwen3-Omni-30B-A3B-Instruct-AWQ-4bit, snapshot d6e1eff8)"],
+      ["Decoding", "greedy (temperature 0, top_k -1, repetition penalty 1.1), seed 42"],
+    ]);
+  });
+});
+
+describe("fmtPp", () => {
+  it("signs percentage points, keeps exactly zero apart from null", () => {
+    expect(fmtPp(0.0105)).toBe("+1.05 pp");
+    expect(fmtPp(-0.0058)).toBe("−0.58 pp");
+    expect(fmtPp(0.005)).toBe("+0.50 pp");
+    expect(fmtPp(0)).toBe("0");
+    expect(fmtPp(null)).toBe("—");
+    expect(fmtPp(undefined)).toBe("—");
+    expect(WORKLOADS.speech.quality.fmt(0)).toBe("0");
+    expect(WORKLOADS.speech.quality.fmt(null)).toBe("—");
   });
 });
 

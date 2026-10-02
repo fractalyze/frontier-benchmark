@@ -17,7 +17,7 @@ export const Route = createFileRoute("/")({
       {
         property: "og:description",
         content:
-          "The best measured latency-quality tradeoffs for generative image and video inference.",
+          "The best measured latency-quality tradeoffs for generative image, video and speech inference.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -27,10 +27,12 @@ export const Route = createFileRoute("/")({
 });
 
 const METHOD = [
-  "Baseline: the engine's native BF16 run at the page's step count. Every recipe is compared to its output.",
-  `Quality: a loss against the baseline output for the same prompt and seed, over a fixed prompt set — ${WORKLOAD_SLUGS.map(
+  "Baseline: the engine's native run under the page's protocol (BF16 at the page's step count for image). Every recipe is compared to it.",
+  `Quality: a loss against the baseline for the same prompt and seed, over a fixed prompt set — ${WORKLOAD_SLUGS.map(
     (w) => `${WORKLOADS[w].quality.name} for ${w}`,
-  ).join(", ")}.`,
+  ).join(
+    ", ",
+  )}. ΔWER is the recipe's word error rate minus the baseline's; negative means fewer errors.`,
   "Speed: latency of a single request, median after warmup — seconds per image or clip, milliseconds to first audio for speech.",
   "Verified: re-measured by the maintainers on a private held-out prompt set.",
 ];
@@ -61,8 +63,8 @@ function Index() {
           <span>loss(recipe, baseline) ≤ ε</span>
         </div>
         <p className="mt-5 text-muted-foreground">
-          for the quality loss ε you choose — LPIPS for image and video, word-error-rate increase
-          for speech.
+          for the quality loss ε you choose — LPIPS for image and video, ΔWER (change in word error
+          rate, signed) for speech.
         </p>
       </section>
 
