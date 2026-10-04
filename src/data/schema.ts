@@ -92,6 +92,8 @@ export const BenchmarkFileSchema = z.discriminatedUnion("workload", [
 export const RecipeFileSchema = z
   .object({
     id: slug,
+    /** Display name; omitted, the methods are joined with " + ". */
+    name: text.optional(),
     engine: z.object({ name: text, version: text, url: z.string().url().nullable() }).strict(),
     optimization: z.array(z.object({ technique: z.enum(TECHNIQUES), method: text }).strict()),
     configuration: z.array(text),

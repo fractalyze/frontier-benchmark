@@ -1,7 +1,7 @@
 # Decisions
 
 Scope: what was settled, why, and what was rejected. Change a decision in a
-PR that updates this page. Status: current · updated 2026-10-02.
+PR that updates this page. Status: current · updated 2026-10-04.
 
 ## Benchmark
 
@@ -41,7 +41,13 @@ PR that updates this page. Status: current · updated 2026-10-02.
 ## Recipes
 
 - **Recipe = engine + list of {technique, method}** from a closed list of
-  nine techniques. Names are derived from methods so they cannot drift.
+  nine techniques. Names are derived from methods so they cannot drift, unless
+  the recipe file sets an optional `name` (2026-10-04): Qwen3-Omni's joined
+  methods ran to ~100 characters ("thinker, talker, code-predictor megakernels
+  + compiled code2wav + …") in the chart, the cards and every table row, so
+  its recipes are `Megakernels` and `Deterministic Marlin`; the recipe dialog
+  still lists every method. Use it only when the joined methods do not fit a
+  table row; the baseline never takes one.
 - **Stage Scheduling** (2026-10-02) is the ninth technique: when the stages of
   a multi-stage pipeline (Qwen3-Omni's thinker, talker and code2wav) run and
   hand data on — early first chunk, frame 0 with the prefill, pre-prefill,
@@ -71,6 +77,16 @@ PR that updates this page. Status: current · updated 2026-10-02.
 - **Frontier points are solid, dominated points are hollow rings**
   (2026-10-01), so the frontier reads at a glance; points above the limit are
   faded in both cases.
+- **Speech draws latency bars with a quality gate, not a Pareto scatter**
+  (2026-10-04; `chart` in `WORKLOADS`). Its ΔWER rests on three distinct
+  replies (each prompt's text repeats five times) and swings −2.2 to +1.9 pp
+  per prompt, so placing recipes on a ΔWER axis ranked noise; and with one
+  recipe ahead on both axes the scatter's frontier was a single point with the
+  baseline drawn as dominated. The page keeps "fastest recipe within ε": one
+  bar per recipe, fastest first, ΔWER only passes or fails a gate set with −
+  and +. Rejected: absolute WER on the y axis with per-prompt error bars (same
+  three samples); keeping the scatter with the baseline forced onto the
+  frontier (draws a trade-off the data does not show).
 
 ## Harness and tooling
 

@@ -1,5 +1,6 @@
 {
   "id": "deterministic-marlin",
+  "name": "Deterministic Marlin",
   "engine": {
     "name": "vLLM-Omni (fractalyze fork)",
     "version": "379804a6",
