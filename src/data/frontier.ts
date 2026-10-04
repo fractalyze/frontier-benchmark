@@ -18,7 +18,7 @@ export type { Technique, VerificationStatus, MeasuredOn, WorkloadSlug } from "./
 export { WORKLOAD_SLUGS };
 
 export interface Recipe extends RecipeFile {
-  /** Methods joined with " + "; "Baseline" for the reference recipe. */
+  /** The file's `name`, else its methods joined with " + "; "Baseline" for the reference recipe. */
   name: string;
 }
 
@@ -68,6 +68,12 @@ export interface Workload {
     /** Lowest limit the grip allows; the bottom of the y axis also bounds it. */
     limitMin: number;
   };
+  /**
+   * How the page draws its recipes. "pareto": latency × loss scatter with a draggable limit
+   * line. "latency": one bar per recipe, fastest first, the loss only a pass/fail gate; for a
+   * loss too coarse to rank recipes by (speech ΔWER rests on three distinct replies).
+   */
+  chart: "pareto" | "latency";
   /** PSNR, SSIM and ImageReward apply: the recipe dialog shows their tiles. */
   imageScores: boolean;
   latency: {
@@ -106,6 +112,7 @@ export const WORKLOADS: Record<WorkloadSlug, Workload> = {
       fmt: (v) => fmtLpips(v),
       ...IMAGE_SCALE,
     },
+    chart: "pareto",
     imageScores: true,
     latency: SECONDS_AXIS,
   },
@@ -120,13 +127,14 @@ export const WORKLOADS: Record<WorkloadSlug, Workload> = {
       fmt: (v) => fmtLpips(v),
       ...IMAGE_SCALE,
     },
+    chart: "pareto",
     imageScores: true,
     latency: SECONDS_AXIS,
   },
   speech: {
     slug: "speech",
     label: "Speech models",
-    caption: "milliseconds to first audio · ΔWER vs baseline, negative is fewer errors",
+    caption: "ms to first audio · ΔWER vs baseline",
     quality: {
       key: "wer",
       name: "ΔWER",
@@ -144,6 +152,7 @@ export const WORKLOADS: Record<WorkloadSlug, Workload> = {
       digits: 4,
       limitMin: -Infinity,
     },
+    chart: "latency",
     imageScores: false,
     latency: {
       axis: "Time to first audio (ms)",
@@ -190,7 +199,7 @@ function parse<T>(schema: z.ZodType<T>, data: unknown, file: string): T {
 }
 
 const recipeName = (r: RecipeFile) =>
-  r.optimization.length ? r.optimization.map((o) => o.method).join(" + ") : "Baseline";
+  r.optimization.length ? (r.name ?? r.optimization.map((o) => o.method).join(" + ")) : "Baseline";
 
 /**
  * Pure "files → benchmarks" builder. Keys are file paths (any prefix), values the parsed JSON;
@@ -247,6 +256,7 @@ export function buildBenchmarks(files: Record<string, unknown>): Benchmark[] {
       const loss = r.metrics[quality];
       if (isBaseline && (r.optimization.length || loss || psnr || ssim))
         throw err(file, `baseline must have optimization = [] and ${quality}/psnr/ssim = null`);
+      if (isBaseline && r.name !== undefined) throw err(file, "baseline is always named Baseline");
       if (!isBaseline) {
         const missing = Object.entries({ optimization: r.optimization.length, [quality]: loss })
           .filter(([, v]) => !v)

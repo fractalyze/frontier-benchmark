@@ -64,6 +64,13 @@ describe("BENCHMARKS (loaded from data/benchmarks via import.meta.glob)", () => 
     expect(byId("sglang-native").name).toBe("Baseline");
     expect(byId("dpcache-k20").name).toBe("DPCache K=20");
     expect(byId("cachedit-stock").name).toBe("Cache-DiT stock");
+    // a recipe file's own name wins over its methods
+    const omni = findBenchmark("qwen3-omni", "rtx5090")!;
+    expect(omni.recipes.map((r) => r.name)).toEqual([
+      "Deterministic Marlin",
+      "Megakernels",
+      "Baseline",
+    ]);
   });
 });
 
@@ -72,6 +79,12 @@ describe("lossOf", () => {
     expect(bench.workload).toBe("image");
     expect(lossOf(bench, bench.baseline)).toBe(0);
     expect(lossOf(bench, byId("dpcache-k20"))).toBe(0.0113);
+  });
+
+  it("draws image and video as a Pareto scatter and speech as latency bars", () => {
+    expect(WORKLOADS.image.chart).toBe("pareto");
+    expect(WORKLOADS.video.chart).toBe("pareto");
+    expect(WORKLOADS.speech.chart).toBe("latency");
   });
 
   it("reads the signed wer on the speech benchmark and formats latency in milliseconds", () => {
@@ -166,6 +179,18 @@ describe("workloads", () => {
   });
 });
 
+describe("recipe names", () => {
+  it("rejects a name on the baseline, which is always Baseline", () => {
+    const { recipes: _r, baseline, updated: _u, ...file } = bench;
+    const { name: _n, ...baselineFile } = baseline;
+    const files = {
+      "x/qwen-image-2.1/rtx5090/benchmark.json": file,
+      "x/qwen-image-2.1/rtx5090/recipes/sglang-native.json": { ...baselineFile, name: "Stock" },
+    };
+    expect(() => buildBenchmarks(files)).toThrow(/baseline is always named Baseline/);
+  });
+});
+
 describe("speedup", () => {
   it("is baseline latency over recipe latency", () => {
     expect(speedup(bench, bench.baseline)).toBe(1);
@@ -189,8 +214,8 @@ describe("protocolRows", () => {
     expect(protocolRows(omni)).toEqual([
       ["Output", "text + 24 kHz speech, streamed"],
       ["Batch", 1],
-      ["Precision", "AWQ W4A16 (cyankiwi/Qwen3-Omni-30B-A3B-Instruct-AWQ-4bit, snapshot d6e1eff8)"],
-      ["Decoding", "greedy (temperature 0, top_k -1, repetition penalty 1.1), seed 42"],
+      ["Precision", "AWQ W4A16"],
+      ["Decoding", "greedy, seed 42"],
     ]);
   });
 });

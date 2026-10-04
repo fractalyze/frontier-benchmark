@@ -1,5 +1,6 @@
 {
   "id": "kernels",
+  "name": "Megakernels",
   "engine": {
     "name": "vLLM-Omni (fractalyze fork)",
     "version": "379804a6",

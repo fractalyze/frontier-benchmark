@@ -1,7 +1,7 @@
 # Adding a recipe
 
 Scope: how one optimization recipe gets onto an existing benchmark page.
-Status: current · updated 2026-10-02.
+Status: current · updated 2026-10-04.
 
 A recipe is one engine configuration measured against the page's baseline.
 Field meanings are in [data-model.md](data-model.md); this page is the
@@ -99,8 +99,9 @@ the filename. This is the complete placeholder form; everything under
 ```
 
 `technique` must be one of the nine in [data-model.md](data-model.md#recipesidjson);
-the display name is derived from the methods (`FP8 W8A8 + SageAttention2`), so
-there is no name field. Check that the harness resolves the recipe before
+the display name is derived from the methods (`FP8 W8A8 + SageAttention2`).
+When the joined methods are too long for a table row, set an optional
+`"name"` (`"Megakernels"`); the dialog still lists every method. Check that the harness resolves the recipe before
 touching a GPU:
 
 ```bash

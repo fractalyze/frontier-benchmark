@@ -1,7 +1,7 @@
 # Data model
 
 Scope: every field in `data/`, what the loader enforces, and the values the UI
-derives. Status: current · updated 2026-10-02.
+derives. Status: current · updated 2026-10-04.
 
 Everything the site shows comes from JSON files under `data/`. The schema is
 `src/data/schema.ts` (zod); the loader `src/data/frontier.ts` adds the
@@ -46,9 +46,14 @@ benchmark page.
 `WORKLOADS` in `src/data/frontier.ts` maps a workload to everything the UI needs:
 section label and caption on the main page, the quality metric (which key under
 `recipe.metrics`, its display name, formatter and methodology line) and the
-latency label and format, and the chart's scales (tick spacing, the smallest
-top of the loss axis, the default limit and its arrow-key step). Components
-never hard-code a metric name or a scale.
+latency label and format, the chart kind, and the chart's scales (tick spacing,
+the smallest top of the loss axis, the default limit and its arrow-key step).
+Components never hard-code a metric name or a scale.
+
+`chart` picks how a benchmark page draws its recipes: `pareto` (image, video)
+is the latency × loss scatter with a draggable limit line; `latency` (speech)
+is one bar per recipe, fastest first, with the loss only a pass/fail gate set
+by − and + buttons (why: [decisions.md](decisions.md#site)).
 
 | workload | quality key | quality name | latency                     |
 | -------- | ----------- | ------------ | --------------------------- |
@@ -64,8 +69,8 @@ Qwen3-ASR-1.7B and scored against that reply's own text (openai-whisper's
 `EnglishTextNormalizer`). `mean` is the recipe's word-weighted WER over all
 timed replies minus the baseline's; `max` is the largest per-prompt increase.
 Both are fractions (`-0.0058` is −0.58 pp) and are shown in signed percentage
-points. Negative means fewer errors than the baseline, so the chart's loss
-axis extends below zero and the limit can be negative.
+points. Negative means fewer errors than the baseline, so the quality gate can
+be negative.
 
 ## recipes/<id>.json
 
@@ -84,7 +89,9 @@ axis extends below zero and the limit can be negative.
 | `pr`            | submission pull request number or `null`                                                        |
 
 A recipe's display name is derived from its methods joined with `+` (`DPCache
-K=20`, `FP8 W8A8 + SageAttention2`); the baseline is shown as "Baseline".
+K=20`, `FP8 W8A8 + SageAttention2`), unless the file sets an optional `name`
+(`Megakernels`) for methods too long to show; the baseline is always
+"Baseline" and the loader rejects a `name` on it.
 
 Techniques: Step Reduction, Feature Caching, Sparse Attention, Token Pruning,
 Quantization, Kernel Optimization, Compilation, Parallelism, Stage Scheduling
@@ -122,8 +129,8 @@ as "—"; it still has `latencyS`, `peakVramGb` and `imageReward`.
   pair appears once; slugs exist in the catalogues;
 - the benchmark's workload matches the model's;
 - `baselineRecipe` has a file, an empty `optimization` and `null` quality
-  metrics; every other recipe has at least one optimization and the workload's
-  quality key;
+  metrics and no `name`; every other recipe has at least one optimization and
+  the workload's quality key;
 - recipe ids are unique and equal their filenames.
 
 ## Derived values
@@ -132,7 +139,8 @@ as "—"; it still has `latencyS`, `peakVramGb` and `imageReward`.
   improves on every faster recipe. With a nonnegative loss it ends at the
   baseline; with ΔWER a recipe can beat the baseline on both axes, and then
   the baseline is off the frontier (Qwen3-Omni: only `kernels` is on it). The
-  chart's line and the main-page cards show exactly this set.
+  Pareto chart's line and the main-page cards show exactly this set; a
+  `latency` chart does not draw it.
 - `fastestUnder(bench, ε)`: the lowest-latency recipe with loss ≤ ε; what the
-  quality-limit grip on the benchmark page selects.
+  quality-limit grip (Pareto) or the quality gate (latency bars) selects.
 - `speedup` = baseline latency / recipe latency.
