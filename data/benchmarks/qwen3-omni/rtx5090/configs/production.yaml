@@ -1,0 +1,92 @@
+# Copied unchanged from fractalyze/decode-mk@d48ef71a268df8ad46f8e47cab0f57a8c3fbe73a control/qwen3omni/production.yaml.
+#
+# Copyright 2026 Fractalyze Inc. All rights reserved.
+#
+# Qwen3-Omni-30B-A3B (cyankiwi AWQ-4bit) on one RTX 5090 under vLLM-Omni
+# 69de153: the model's production deploy (vllm_omni/deploy/qwen3_omni_moe.yaml,
+# written for 2x H100), with every stage on cuda:0 and only the changes it
+# takes to fit 32 GB, which use 31.8 of its 31.84 GiB:
+#
+#   - memory fractions 0.655 / 0.225 / 0.04 for the thinker, talker and
+#     code2wav (production: 0.9 / 0.6 / 0.1 over two GPUs);
+#   - max_model_len and max_num_batched_tokens of 4096 for the thinker and
+#     8192 for the talker and code2wav;
+#   - max_num_seqs 2, 2 and 1 (production: 64 each), a batch-1 latency
+#     profile;
+#   - code2wav eager, since its graph capture needs ~2.5 GiB;
+#   - the other platforms' sections dropped.
+#
+# The talker has ~10 MB left after its KV cache (0.17 GiB available, 0.16
+# needed at max_model_len 8192), so anything added to it must reuse its
+# memory.
+
+async_chunk: true
+
+connectors:
+  connector_of_shared_memory:
+    name: SharedMemoryConnector
+    extra:
+      initial_codec_chunk_frames: 4
+      codec_chunk_frames: 25
+      codec_left_context_frames: 25
+
+stages:
+  - stage_id: 0
+    max_num_batched_tokens: 4096
+    max_model_len: 4096
+    max_num_seqs: 2
+    gpu_memory_utilization: 0.655
+    moe_backend: triton
+    trust_remote_code: true
+    enable_prefix_caching: false
+    devices: "0"
+    default_sampling_params:
+      temperature: 0.0
+      max_tokens: 2048
+
+  - stage_id: 1
+    max_num_batched_tokens: 8192
+    max_model_len: 8192
+    max_num_seqs: 2
+    gpu_memory_utilization: 0.225
+    moe_backend: triton
+    trust_remote_code: true
+    enable_prefix_caching: false
+    devices: "0"
+    input_connectors:
+      from_stage_0: connector_of_shared_memory
+    default_sampling_params:
+      # Production's seed: the talker is the only stochastic stage, and the
+      # seed makes a request's speech reproducible.
+      seed: 42
+      temperature: 0.9
+      top_k: 50
+      max_tokens: 4096
+      repetition_penalty: 1.05
+
+  - stage_id: 2
+    max_num_batched_tokens: 8192
+    max_model_len: 8192
+    max_num_seqs: 1
+    gpu_memory_utilization: 0.04
+    enforce_eager: true
+    trust_remote_code: true
+    enable_prefix_caching: false
+    enable_chunked_prefill: false
+    async_scheduling: false
+    devices: "0"
+    input_connectors:
+      from_stage_1: connector_of_shared_memory
+    default_sampling_params:
+      temperature: 0.0
+      top_p: 1.0
+      top_k: -1
+      max_tokens: 65536
+      repetition_penalty: 1.1
+
+platforms:
+  cuda:
+    stages:
+      - stage_id: 0
+        compilation_config:
+          custom_ops: ["+rotary_embedding"]

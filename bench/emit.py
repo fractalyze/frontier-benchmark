@@ -23,6 +23,19 @@ from bench import protocol  # noqa: E402
 
 def metrics_from(manifest: dict, scores: dict, is_baseline: bool) -> dict:
     s = scores["summary"]
+    if manifest.get("workload") == "speech":
+        # latency is time to first audio; vLLM-Omni reserves a fixed share of the card
+        # per stage, so there is no peak to report
+        return dict(
+            latencyS=round(manifest["ttfa"]["p50"], 3),
+            peakVramGb=None,
+            lpips=None,
+            wer=None if is_baseline else s["wer"],
+            asrWer=s["asrWer"],
+            psnr=None,
+            ssim=None,
+            imageReward=None,
+        )
     peak_mb = manifest.get("peak_memory_mb") or (manifest.get("memory") or {}).get("peak_mib")
     return dict(
         latencyS=round(manifest["wall"]["p50"], 3),
@@ -76,7 +89,8 @@ def main() -> int:
     recipe, benchmark = apply(
         json.loads(rpath.read_text()), json.loads(bpath.read_text()), manifest, scores,
         prompt_set=args.prompt_set, measured_on=args.measured_on, date=args.date,
-        engine_version=(manifest.get("sglang_commit") or "")[:9] or None,
+        engine_version=(manifest.get("engine_commit") or "")[:8]
+        or (manifest.get("sglang_commit") or "")[:9] or None,
     )
     rpath.write_text(json.dumps(recipe, indent=2) + "\n")
     bpath.write_text(json.dumps(benchmark, indent=2) + "\n")

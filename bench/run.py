@@ -20,7 +20,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from bench import env, protocol  # noqa: E402
+from bench import env, protocol, speech  # noqa: E402
 
 CUDA_HOME = os.environ.get("BENCH_CUDA_HOME", "/data/a41/qwen-image-opt/cuda-home-13")
 
@@ -45,6 +45,25 @@ def score(reference: pathlib.Path | None, candidate: pathlib.Path, image_reward:
     subprocess.run(cmd, check=True, cwd=str(protocol.REPO))
 
 
+def speak(args, recipe_id: str, out: pathlib.Path) -> None:
+    cmd = [sys.executable, "-m", "bench.speak", "--model", args.model, "--hardware", args.hardware,
+           "--recipe", recipe_id, "--prompts", args.prompts, "--split", args.split,
+           "--out", str(out), "--repeats", str(args.repeats)]
+    if args.limit:
+        cmd += ["--limit", str(args.limit)]
+    print("speak:", recipe_id, flush=True)
+    subprocess.run(cmd, check=True, cwd=str(protocol.REPO))
+
+
+def score_speech(reference: pathlib.Path | None, candidate: pathlib.Path) -> None:
+    # The ASR model is served from the newest engine venv on this machine's list.
+    venv = speech.VLLM_OMNI_ROOT / f"venv-{os.environ.get('BENCH_ASR_ENGINE', '379804a6')}"
+    cmd = [sys.executable, "-m", "bench.score_speech", "--candidate", str(candidate), "--asr-venv", str(venv)]
+    if reference is not None:
+        cmd += ["--reference", str(reference)]
+    subprocess.run(cmd, check=True, cwd=str(protocol.REPO))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--model", default="qwen-image-2.1")
@@ -56,6 +75,7 @@ def main() -> int:
     ap.add_argument("--measured-on", default="held-out", choices=("public", "held-out"))
     ap.add_argument("--runs", type=pathlib.Path, required=True, help="run directories go under here")
     ap.add_argument("--warmups", type=int, default=10)
+    ap.add_argument("--repeats", type=int, default=3, help="speech: requests per prompt")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--no-emit", action="store_true", help="render and score only (smoke, public parity)")
     ap.add_argument("--no-image-reward", action="store_true")
@@ -64,14 +84,22 @@ def main() -> int:
 
     benchmark = protocol.load_benchmark(args.model, args.hardware)
     baseline_id = benchmark["baselineRecipe"]
+    is_speech = benchmark["workload"] == "speech"
     todo = list(dict.fromkeys([baseline_id] + args.recipe))
     with env.gpu_lock(f"frontier-benchmark {' '.join(todo)}"):
         for recipe_id in todo:
             out = args.runs / recipe_id
+            reference = None if recipe_id == baseline_id else args.runs / baseline_id
             if args.rerender or not (out / "manifest.json").exists():
-                render(args, recipe_id, out, protocol.spec_for(args.model, args.hardware, recipe_id))
+                if is_speech:
+                    speak(args, recipe_id, out)
+                else:
+                    render(args, recipe_id, out, protocol.spec_for(args.model, args.hardware, recipe_id))
             if args.rerender or not (out / "scores.json").exists():
-                score(None if recipe_id == baseline_id else args.runs / baseline_id, out, not args.no_image_reward)
+                if is_speech:
+                    score_speech(reference, out)
+                else:
+                    score(reference, out, not args.no_image_reward)
             if args.no_emit or (recipe_id == baseline_id and baseline_id not in args.recipe):
                 continue
             subprocess.run([sys.executable, "-m", "bench.emit", "--model", args.model, "--hardware", args.hardware,

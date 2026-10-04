@@ -62,6 +62,23 @@ python -m bench.calibrate --recipe <id> --budgets 12 16 20 --prompts "$BENCH_HEL
 (`bench.calibrate` builds its spec without the schedule it is about to create,
 so pass any server kwargs the runtime needs as `--component-quantizations.<component>=<method>`.)
 
+**`vllm-omni-runtime`** — a speech page's recipe (`bench/speech.py`): the
+vLLM-Omni deploy config it serves, whether its stages share the GPU under CUDA
+MPS, and its environment switches. The engine is the recipe's
+`engine.version`, a checkout under `$BENCH_VLLM_OMNI`.
+
+```json
+{
+  "schema": "vllm-omni-runtime",
+  "deploy": "data/benchmarks/qwen3-omni/rtx5090/configs/kernels.yaml",
+  "mps": true,
+  "env": { "VLLM_OMNI_THINKER_MEGAKERNEL": "1" }
+}
+```
+
+A speech baseline (`configPath: null`) serves the deploy config registered for
+its model in `bench/speech.py` on the stock engine.
+
 ## 2. Write the recipe file
 
 Create `data/benchmarks/<model>/<hardware>/recipes/<id>.json`. The `id` is
@@ -128,7 +145,8 @@ The run takes the GPU lock (`BENCH_GPU_LOCKS`) and refuses to start while
 another holder has it; sibling sessions re-take the lock within seconds, so
 queue long jobs in a background script that polls every 2 s and retries on
 `refusing to measure`. A foreign process overlapping a run marks it DIRTY and
-`emit` refuses it. To re-emit a finished run later:
+`emit` refuses it. A speech page takes `--repeats N` (requests per prompt,
+default 3) in place of `--warmups`. To re-emit a finished run later:
 
 ```bash
 python -m bench.emit --model <model> --hardware <hardware> --recipe <id> --run "$BENCH_RUNS/<model>/heldout-v1/<id>" --prompt-set heldout-v1
@@ -158,14 +176,14 @@ benchmark page from `npm run dev` with headless Chromium. Commit as
 ## Extension points
 
 A recipe JSON needs no code change as long as it uses an existing technique,
-any method name, and a config in one of the three shapes. Three things are
+any method name, and a config in one of the existing shapes. Three things are
 deliberately closed lists; each is one edit plus one test:
 
-| to add                      | edit                                                                                  | test                                                                        |
-| --------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| a tenth technique           | the `TECHNIQUES` array in `src/data/schema.ts`                                        | `npm test` (a recipe using it loads)                                        |
-| a fourth config shape       | an `elif config.get("schema") == "<name>"` branch in `run_spec` (`bench/protocol.py`) | a `run_spec` case in `bench/tests/test_protocol.py`, like the existing ones |
-| an engine other than sglang | `render.py` (how a process loads and serves it) and the `engine` block of the recipe  | a smoke run; `score.py` and `emit.py` are engine-agnostic                   |
+| to add                      | edit                                                                                                                     | test                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| a tenth technique           | the `TECHNIQUES` array in `src/data/schema.ts`                                                                           | `npm test` (a recipe using it loads)                                                           |
+| a new config shape          | an `elif config.get("schema") == "<name>"` branch in `run_spec` (`bench/protocol.py`; speech: `bench/speech.py`)         | a `run_spec` case in `bench/tests/test_protocol.py` (`test_speech.py`), like the existing ones |
+| an engine other than sglang | `render.py` (how a process loads and serves it; vLLM-Omni for speech is `speak.py`) and the `engine` block of the recipe | a smoke run; `score.py` and `emit.py` are engine-agnostic                                      |
 
 `method` is free text, so a new technique is only needed when none of the
 nine describes the mechanism (Stage Scheduling was the ninth, added with the

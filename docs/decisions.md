@@ -50,10 +50,10 @@ PR that updates this page. Status: current · updated 2026-10-04.
   nine techniques. Names are derived from methods so they cannot drift, unless
   the recipe file sets an optional `name` (2026-10-04): Qwen3-Omni's joined
   methods ran to ~100 characters ("thinker, talker, code-predictor megakernels
-  + compiled code2wav + …") in the chart, the cards and every table row, so
-  its recipes are `Megakernels` and `Deterministic Marlin`; the recipe dialog
-  still lists every method. Use it only when the joined methods do not fit a
-  table row; the baseline never takes one.
+  - compiled code2wav + …") in the chart, the cards and every table row, so
+    its recipes are `Megakernels` and `Deterministic Marlin`; the recipe dialog
+    still lists every method. Use it only when the joined methods do not fit a
+    table row; the baseline never takes one.
 - **Stage Scheduling** (2026-10-02) is the ninth technique: when the stages of
   a multi-stage pipeline (Qwen3-Omni's thinker, talker and code2wav) run and
   hand data on — early first chunk, frame 0 with the prefill, pre-prefill,
