@@ -5,8 +5,8 @@
   "protocol": {
     "version": "v0.1",
     "batch": 1,
-    "precision": "AWQ W4A16 (cyankiwi/Qwen3-Omni-30B-A3B-Instruct-AWQ-4bit, snapshot d6e1eff8)",
-    "decoding": "greedy (temperature 0, top_k -1, repetition penalty 1.1), seed 42",
+    "precision": "AWQ W4A16",
+    "decoding": "greedy, seed 42",
     "output": "text + 24 kHz speech, streamed"
   },
   "promptSets": {

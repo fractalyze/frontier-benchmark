@@ -214,8 +214,8 @@ describe("protocolRows", () => {
     expect(protocolRows(omni)).toEqual([
       ["Output", "text + 24 kHz speech, streamed"],
       ["Batch", 1],
-      ["Precision", "AWQ W4A16 (cyankiwi/Qwen3-Omni-30B-A3B-Instruct-AWQ-4bit, snapshot d6e1eff8)"],
-      ["Decoding", "greedy (temperature 0, top_k -1, repetition penalty 1.1), seed 42"],
+      ["Precision", "AWQ W4A16"],
+      ["Decoding", "greedy, seed 42"],
     ]);
   });
 });

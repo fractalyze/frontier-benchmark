@@ -35,6 +35,12 @@ PR that updates this page. Status: current · updated 2026-10-04.
 - **Speech pages are `Submitted`** until `bench/` can render and score speech:
   the harness is image-only, so nothing on a speech page is re-measured on a
   held-out set yet.
+- **Protocol fields are page-header summaries** (2026-10-04): short values
+  (`AWQ W4A16`, `greedy, seed 42`), not the full provenance. The checkpoint
+  snapshot and every sampling parameter live in the report each recipe's
+  `sourceUrl` points to (Qwen3-Omni: `measurements.md`, cyankiwi AWQ snapshot
+  `d6e1eff8`, temperature 0, repetition penalty 1.1). Rejected: the full
+  strings in the header, which wrapped over three lines on a phone.
 - **Protocol version** is per benchmark (`v0.5` for Qwen-Image 2.1, `v0.1` for
   FLUX.2 klein) and bumps when the protocol changes.
 
