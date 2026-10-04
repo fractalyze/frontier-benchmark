@@ -100,7 +100,9 @@ def _git_head(path: pathlib.Path) -> str:
 
 
 def _mps_pids() -> set[int]:
-    out = subprocess.run(["pgrep", "-u", str(os.getuid()), "-x", "nvidia-cuda-mps-server"],
+    # Match the command line, not the name: Linux cuts a process name to 15 characters
+    # ("nvidia-cuda-mps"), so `pgrep -x nvidia-cuda-mps-server` never matches.
+    out = subprocess.run(["pgrep", "-u", str(os.getuid()), "-f", "^nvidia-cuda-mps-server"],
                          capture_output=True, text=True).stdout
     return {int(p) for p in out.split()}
 

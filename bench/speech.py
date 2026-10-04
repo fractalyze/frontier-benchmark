@@ -50,11 +50,12 @@ MODELS = {
     ),
 }
 ASR_MODEL = SpeechModel("Qwen/Qwen3-ASR-1.7B", "7278e1e70fe206f11671096ffdd38061171dd6e5", "")
-# Not in any prompt set: they only bring the server to steady state.
+# Not in any prompt set: they only bring the server to steady state. As long as a timed
+# reply, so every kernel a timed request needs is compiled before timing starts.
 WARMUP_PROMPTS = (
-    "Say hello in one short sentence.",
-    "Name three colours of the rainbow in one sentence.",
-    "Say good morning to a friend in two short sentences.",
+    "In about five sentences, tell me how a river carves a canyon over time.",
+    "Describe a quiet library on a winter afternoon in about five sentences.",
+    "Tell a short story, about five sentences long, about a robot who learns to paint.",
 )
 
 
