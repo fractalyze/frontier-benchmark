@@ -36,20 +36,24 @@
   ],
   "configPath": "data/benchmarks/qwen3-omni/rtx5090/configs/deterministic-marlin.runtime.json",
   "metrics": {
-    "latencyS": 0.042,
+    "latencyS": 0.0468,
     "peakVramGb": null,
     "lpips": null,
-    "wer": {
-      "mean": 0.0105,
-      "max": 0.019
+    "disagree": {
+      "mean": 0.0175,
+      "max": 0.0536
+    },
+    "asrWer": {
+      "mean": 0.0299,
+      "max": 0.3743
     },
     "psnr": null,
     "ssim": null,
     "imageReward": null
   },
-  "status": "Submitted",
-  "measuredOn": "public",
-  "date": "2026-10-02",
-  "sourceUrl": "https://github.com/fractalyze/vllm-omni/blob/9122317a9f62fff0bec41ebda94662020f73109c/showcase/qwen3omni/measurements.md",
+  "status": "Verified",
+  "measuredOn": "held-out",
+  "date": "2026-10-06",
+  "sourceUrl": null,
   "pr": null
 }

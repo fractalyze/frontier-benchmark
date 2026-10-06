@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import {
   fmtLatency,
   fmtLoss,
+  fmtPct,
   lossOf,
   speedup,
   workloadOf,
@@ -124,7 +125,7 @@ function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
           value={fmtLoss(bench, loss?.mean)}
           sub={isBaseline ? "reference output" : `max ${fmtLoss(bench, loss?.max)} over the set`}
         />
-        {workload.imageScores ? (
+        {workload.scores === "image" ? (
           <Tile
             label="ImageReward"
             value={m.imageReward ? m.imageReward.mean.toFixed(2) : DASH}
@@ -135,10 +136,18 @@ function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
             }
           />
         ) : (
-          vram("lg")
+          <Tile
+            label="ASR WER"
+            value={fmtPct(m.asrWer?.mean)}
+            sub={
+              isBaseline
+                ? "audio vs its own text"
+                : `baseline ${fmtPct(base.asrWer?.mean)}; shown, not ranked`
+            }
+          />
         )}
       </dl>
-      {workload.imageScores && (
+      {workload.scores === "image" && (
         <dl className="grid grid-cols-3 gap-5">
           <Tile
             size="sm"

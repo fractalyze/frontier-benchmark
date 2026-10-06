@@ -29,7 +29,8 @@ def metrics_from(manifest: dict, scores: dict, is_baseline: bool, agree: dict | 
         if not is_baseline and agree is None:
             raise ValueError("a speech recipe needs its agree.json (token disagreement with the baseline)")
         return dict(
-            latencyS=round(manifest["ttfa"]["p50"], 3),
+            # milliseconds matter here: three decimals of a second would round 24.8 ms to 25
+            latencyS=round(manifest["ttfa"]["p50"], 4),
             peakVramGb=None,
             lpips=None,
             disagree=None if is_baseline else agree["summary"],
@@ -98,8 +99,9 @@ def main() -> int:
         or (manifest.get("sglang_commit") or "")[:9] or None,
         agree=agree,
     )
-    rpath.write_text(json.dumps(recipe, indent=2) + "\n")
-    bpath.write_text(json.dumps(benchmark, indent=2) + "\n")
+    # data files are UTF-8 with literal "×" and "–", not \u escapes
+    rpath.write_text(json.dumps(recipe, indent=2, ensure_ascii=False) + "\n")
+    bpath.write_text(json.dumps(benchmark, indent=2, ensure_ascii=False) + "\n")
     print(json.dumps(recipe["metrics"], indent=2))
     print("EMIT_OK")
     return 0

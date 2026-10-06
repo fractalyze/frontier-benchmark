@@ -105,10 +105,12 @@ export const RecipeFileSchema = z
         /** Image / video quality loss vs the baseline output (mean and max over the set). */
         lpips: z.object({ mean: nonneg, max: nonneg }).strict().nullable(),
         /**
-         * Speech quality loss vs the baseline: recipe WER minus baseline WER, as a fraction.
-         * Signed: a recipe can make fewer errors than the baseline (mean < 0).
+         * Speech quality loss vs the baseline: the baseline's replies forced through the recipe's
+         * decode, the share of tokens where the recipe's own greedy choice differs (bench/agree.py).
          */
-        wer: z.object({ mean: z.number(), max: z.number() }).strict().nullable().optional(),
+        disagree: z.object({ mean: nonneg, max: nonneg }).strict().nullable().optional(),
+        /** Speech intelligibility, shown only: ASR WER of each reply's audio vs its own text. */
+        asrWer: z.object({ mean: nonneg, max: nonneg }).strict().nullable().optional(),
         psnr: z.object({ mean: pos, min: pos }).strict().nullable(),
         ssim: z
           .object({ mean: z.number().min(0).max(1) })

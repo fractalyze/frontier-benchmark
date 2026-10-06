@@ -85,7 +85,7 @@ def test_asr_wer_scores_every_reply_against_its_own_text(tmp_path):
     assert summary == {"mean": round(1 / 6, 4), "max": round(1 / 6, 4)}
 
 
-SPEECH_MANIFEST = {"workload": "speech", "ttfa": {"p50": 0.02349}, "pairs": 20, "dirty": False,
+SPEECH_MANIFEST = {"workload": "speech", "ttfa": {"p50": 0.024849}, "pairs": 20, "dirty": False,
                    "engine_commit": "379804a68ea8aa77f703992d00961e884ebbe5f7"}
 
 
@@ -94,7 +94,7 @@ def test_emit_writes_ttfa_token_disagreement_and_asr_wer_and_verifies_held_out()
     agree = {"summary": {"mean": 0.0188, "max": 0.0536}}
     r, b = emit.apply(recipe("kernels"), BENCH, SPEECH_MANIFEST, scores, prompt_set="speech-heldout-v1",
                       measured_on="held-out", date="2026-10-05", engine_version="379804a6", agree=agree)
-    assert r["metrics"] == {"latencyS": 0.023, "peakVramGb": None, "lpips": None,
+    assert r["metrics"] == {"latencyS": 0.0248, "peakVramGb": None, "lpips": None,
                             "disagree": {"mean": 0.0188, "max": 0.0536}, "asrWer": {"mean": 0.011, "max": 0.04},
                             "psnr": None, "ssim": None, "imageReward": None}
     assert r["status"] == "Verified" and b["promptSets"]["held-out"] == {"name": "speech-heldout-v1", "count": 20}

@@ -1,7 +1,7 @@
 # Data model
 
 Scope: every field in `data/`, what the loader enforces, and the values the UI
-derives. Status: current · updated 2026-10-04.
+derives. Status: current · updated 2026-10-06.
 
 Everything the site shows comes from JSON files under `data/`. The schema is
 `src/data/schema.ts` (zod); the loader `src/data/frontier.ts` adds the
@@ -46,31 +46,26 @@ benchmark page.
 `WORKLOADS` in `src/data/frontier.ts` maps a workload to everything the UI needs:
 section label and caption on the main page, the quality metric (which key under
 `recipe.metrics`, its display name, formatter and methodology line) and the
-latency label and format, the chart kind, and the chart's scales (tick spacing,
-the smallest top of the loss axis, the default limit and its arrow-key step).
-Components never hard-code a metric name or a scale.
-
-`chart` picks how a benchmark page draws its recipes: `pareto` (image, video)
-is the latency × loss scatter with a draggable limit line; `latency` (speech)
-is one bar per recipe, fastest first, with the loss only a pass/fail gate set
-by − and + buttons (why: [decisions.md](decisions.md#site)).
+latency label and format, which shown-only scores the recipe dialog has tiles
+for (`scores`), and the chart's scales (tick spacing, the smallest top of the
+loss axis, the default limit and its arrow-key step). Components never
+hard-code a metric name or a scale.
 
 | workload | quality key | quality name | latency                     |
 | -------- | ----------- | ------------ | --------------------------- |
 | image    | `lpips`     | LPIPS        | seconds per image           |
 | video    | `lpips`     | LPIPS        | seconds per clip            |
-| speech   | `wer`       | ΔWER         | milliseconds to first audio |
+| speech   | `disagree`  | Disagreement | milliseconds to first audio |
 
 Latency is always stored in seconds (`latencyS`); the workload decides how it is
 displayed. The video row is provisional: no page uses it yet.
 
-**ΔWER** (speech) is signed. Each timed reply's audio is transcribed by
-Qwen3-ASR-1.7B and scored against that reply's own text (openai-whisper's
-`EnglishTextNormalizer`). `mean` is the recipe's word-weighted WER over all
-timed replies minus the baseline's; `max` is the largest per-prompt increase.
-Both are fractions (`-0.0058` is −0.58 pp) and are shown in signed percentage
-points. Negative means fewer errors than the baseline, so the quality gate can
-be negative.
+**Disagreement** (speech) is the share of the baseline's reply tokens that the
+recipe's own greedy decode would have chosen differently, with the baseline's
+reply forced through the recipe one token per step (`bench/agree.py`). `mean` is
+over every forced token of every prompt, `max` the worst prompt; both are
+fractions shown as percentages (`0.0188` is 1.88%). Every loss is nonnegative,
+so the loss axis starts at zero and the frontier ends at the baseline.
 
 ## recipes/<id>.json
 
@@ -101,15 +96,16 @@ adding one is described in
 
 ### metrics
 
-| key           | meaning                                                                                                     |
-| ------------- | ----------------------------------------------------------------------------------------------------------- |
-| `latencyS`    | seconds per request, single request at a time, median after warmup, model loaded once                       |
-| `peakVramGb`  | engine-reported peak allocated memory over the timed requests, or `null`                                    |
-| `lpips`       | `{mean, max}` LPIPS(alex) vs the baseline output for the same prompt and seed; the image/video quality axis |
-| `wer`         | `{mean, max}` ΔWER, signed (see Workloads); the speech quality axis (optional key)                          |
-| `psnr`        | `{mean, min}` dB vs the baseline image, or `null`                                                           |
-| `ssim`        | `{mean}` vs the baseline image, or `null`                                                                   |
-| `imageReward` | `{mean}` ImageReward-v1.0 of the recipe's own images, absolute, or `null`                                   |
+| key           | meaning                                                                                                           |
+| ------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `latencyS`    | seconds per request, single request at a time, median after warmup, model loaded once                             |
+| `peakVramGb`  | engine-reported peak allocated memory over the timed requests, or `null`                                          |
+| `lpips`       | `{mean, max}` LPIPS(alex) vs the baseline output for the same prompt and seed; the image/video quality axis       |
+| `disagree`    | `{mean, max}` token disagreement with the baseline (see Workloads); the speech quality axis (optional key)        |
+| `asrWer`      | `{mean, max}` ASR WER of each reply's audio vs its own text, baseline included; speech, shown only (optional key) |
+| `psnr`        | `{mean, min}` dB vs the baseline image, or `null`                                                                 |
+| `ssim`        | `{mean}` vs the baseline image, or `null`                                                                         |
+| `imageReward` | `{mean}` ImageReward-v1.0 of the recipe's own images, absolute, or `null`                                         |
 
 The baseline is compared to itself, so its quality keys are `null` and render
 as "—"; it still has `latencyS`, `peakVramGb` and `imageReward`.
@@ -136,11 +132,8 @@ as "—"; it still has `latencyS`, `peakVramGb` and `imageReward`.
 ## Derived values
 
 - `paretoFrontier(bench)`: recipes sorted by latency whose loss strictly
-  improves on every faster recipe. With a nonnegative loss it ends at the
-  baseline; with ΔWER a recipe can beat the baseline on both axes, and then
-  the baseline is off the frontier (Qwen3-Omni: only `kernels` is on it). The
-  Pareto chart's line and the main-page cards show exactly this set; a
-  `latency` chart does not draw it.
+  improves on every faster recipe; every loss is nonnegative, so it ends at the
+  baseline. The chart's line and the main-page cards show exactly this set.
 - `fastestUnder(bench, ε)`: the lowest-latency recipe with loss ≤ ε; what the
-  quality-limit grip (Pareto) or the quality gate (latency bars) selects.
+  quality-limit grip on the benchmark page selects.
 - `speedup` = baseline latency / recipe latency.
