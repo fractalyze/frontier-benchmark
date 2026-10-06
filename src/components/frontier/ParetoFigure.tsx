@@ -45,11 +45,9 @@ export function xDomain(
   return [min, hi + (hi - min) * 0.08];
 }
 
-/** Loss axis [min, max]: from zero, or below the lowest loss when a recipe beats the baseline. */
+/** Loss axis [0, max]: every loss is nonnegative, the baseline's is zero. */
 function yDomain(losses: number[], span: number): [number, number] {
-  const lo = Math.min(0, ...losses);
-  const hi = Math.max(span, ...losses);
-  return [lo < 0 ? lo - (hi - lo) * 0.12 : 0, hi * 1.12];
+  return [0, Math.max(span, ...losses) * 1.12];
 }
 
 export function ParetoFigure({
@@ -130,7 +128,9 @@ export function ParetoFigure({
   const ly = y(limit);
   const tag = `${workload.quality.name} ≤ ${fmtLoss(bench, limit)}`;
   /** The dashed line runs from the y axis to the tag (or the plot edge); the grip stays on it. */
-  const lineEnd = showTag ? W - PAD.r - 132 : W - PAD.r;
+  // the tag is monospace 12px: about 7.3 px a character, plus its rounded ends
+  const tagW = Math.max(124, Math.ceil(tag.length * 7.3) + 26);
+  const lineEnd = showTag ? W - PAD.r - tagW - 8 : W - PAD.r;
   const gripMin = PAD.l + GRIP_W / 2;
   const gripMax = lineEnd - GRIP_W / 2;
   const gripX = gripMin + gripFrac * (gripMax - gripMin);
@@ -194,17 +194,6 @@ export function ParetoFigure({
           className="stroke-border-strong"
         />
         <line x1={PAD.l} x2={PAD.l} y1={PAD.t} y2={H - PAD.b} className="stroke-border-strong" />
-        {/* a signed loss: zero (the baseline's own quality) is not the bottom of the axis */}
-        {yMin < 0 && (
-          <line
-            x1={PAD.l}
-            x2={W - PAD.r}
-            y1={y(0)}
-            y2={y(0)}
-            className="stroke-border-strong"
-            data-testid="zero-line"
-          />
-        )}
         <text
           x={(W + PAD.l) / 2}
           y={H - 10}
@@ -357,15 +346,15 @@ export function ParetoFigure({
           {showTag && (
             <>
               <rect
-                x={W - PAD.r - 124}
+                x={W - PAD.r - tagW}
                 y={-12}
-                width={124}
+                width={tagW}
                 height={24}
                 rx={12}
                 className="fill-foreground"
               />
               <text
-                x={W - PAD.r - 62}
+                x={W - PAD.r - tagW / 2}
                 y={4.5}
                 textAnchor="middle"
                 className="num fill-background text-[12px] font-medium"

@@ -16,7 +16,6 @@ import {
 import { REPO_URL } from "@/data/site";
 import { SiteShell } from "@/components/frontier/SiteShell";
 import { IdentitySelect } from "@/components/frontier/IdentitySelect";
-import { LatencyFigure } from "@/components/frontier/LatencyFigure";
 import { ParetoFigure } from "@/components/frontier/ParetoFigure";
 import { ResultsTable } from "@/components/frontier/ResultsTable";
 
@@ -66,8 +65,7 @@ function BenchmarkPage({ bench }: { bench: Benchmark }) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   const best = fastestUnder(bench, limit);
-  const { quality, chart } = workloadOf(bench);
-  const Figure = chart === "latency" ? LatencyFigure : ParetoFigure;
+  const quality = workloadOf(bench).quality;
   const selected = bench.recipes.find((r) => r.id === picked) ?? best;
 
   // The chart highlights a recipe; a table row also opens its detail dialog.
@@ -103,7 +101,7 @@ function BenchmarkPage({ bench }: { bench: Benchmark }) {
       </section>
 
       <section className="mt-6">
-        <Figure
+        <ParetoFigure
           bench={bench}
           limit={limit}
           selectedId={selected?.id ?? null}
@@ -113,9 +111,8 @@ function BenchmarkPage({ bench }: { bench: Benchmark }) {
 
         <div className="mt-3 border-t border-border pt-4">
           <p className="text-[12px] text-muted-foreground">
-            {chart === "latency"
-              ? "Set the quality gate with − and +. The fastest recipe that passes it is selected; recipes that fail it are greyed out."
-              : "Drag the dashed line (or focus its grip and use the arrow keys) to set the quality limit. The fastest recipe within it is selected; recipes above it are greyed out."}
+            Drag the dashed line (or focus its grip and use the arrow keys) to set the quality
+            limit. The fastest recipe within it is selected; recipes above it are greyed out.
           </p>
           {selected ? (
             <div className="mt-3 border-l-2 border-primary bg-surface-alt py-3 pr-4 pl-4">

@@ -15,17 +15,21 @@
   ],
   "configPath": null,
   "metrics": {
-    "latencyS": 0.213,
+    "latencyS": 0.2221,
     "peakVramGb": null,
     "lpips": null,
-    "wer": null,
+    "disagree": null,
+    "asrWer": {
+      "mean": 0.0202,
+      "max": 0.1282
+    },
     "psnr": null,
     "ssim": null,
     "imageReward": null
   },
-  "status": "Submitted",
-  "measuredOn": "public",
-  "date": "2026-10-02",
-  "sourceUrl": "https://github.com/fractalyze/vllm-omni/blob/9122317a9f62fff0bec41ebda94662020f73109c/showcase/qwen3omni/measurements.md",
+  "status": "Verified",
+  "measuredOn": "held-out",
+  "date": "2026-10-06",
+  "sourceUrl": null,
   "pr": null
 }

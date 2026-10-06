@@ -32,7 +32,7 @@ const METHOD = [
     (w) => `${WORKLOADS[w].quality.name} for ${w}`,
   ).join(
     ", ",
-  )}. ΔWER is the recipe's word error rate minus the baseline's; negative means fewer errors.`,
+  )}. Speech forces the baseline's reply through the recipe and counts the tokens it would have chosen differently.`,
   "Speed: latency of a single request, median after warmup — seconds per image or clip, milliseconds to first audio for speech.",
   "Verified: re-measured by the maintainers on a private held-out prompt set.",
 ];
@@ -63,8 +63,8 @@ function Index() {
           <span>loss(recipe, baseline) ≤ ε</span>
         </div>
         <p className="mt-5 text-muted-foreground">
-          for the quality loss ε you choose — LPIPS for image and video, ΔWER (change in word error
-          rate, signed) for speech.
+          for the quality loss ε you choose — LPIPS for image and video, token disagreement with the
+          baseline's reply for speech.
         </p>
       </section>
 

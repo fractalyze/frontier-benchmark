@@ -155,7 +155,7 @@ describe("ResultsTable on the speech page", () => {
       />,
     );
 
-  it("shows signed ΔWER, zero for the baseline, and milliseconds", () => {
+  it("shows token disagreement in percent, a dash for the baseline, and milliseconds", () => {
     renderOmni();
     const rows = screen
       .getAllByRole("row")
@@ -167,20 +167,21 @@ describe("ResultsTable on the speech page", () => {
           .map((c) => c.textContent),
       );
     expect(rows).toEqual([
-      ["23 ms", "−0.58 pp", "9.3×"],
-      ["42 ms", "+1.05 pp", "5.1×"],
-      ["213 ms", "0", "1.0×"],
+      ["25 ms", "1.88%", "9.0×"],
+      ["47 ms", "1.75%", "4.7×"],
+      ["222 ms", "—", "1.0×"],
     ]);
   });
 
-  it("leaves out the image-only tiles in the detail dialog", () => {
+  it("shows ASR WER in place of the image-only tiles in the detail dialog", () => {
     renderOmni("kernels");
     const dialog = screen.getByRole("dialog");
-    expect(cellOf("ΔWER mean")).toHaveTextContent("−0.58 pp");
-    expect(within(dialog).getByText("max +0.30 pp over the set")).toBeInTheDocument();
-    expect(cellOf("Peak VRAM")).toHaveTextContent(/^—$/);
-    for (const label of ["ImageReward", "PSNR", "SSIM"])
+    expect(cellOf("Disagreement mean")).toHaveTextContent("1.88%");
+    expect(within(dialog).getByText("max 5.36% over the set")).toBeInTheDocument();
+    expect(cellOf("ASR WER")).toHaveTextContent("3.19%");
+    expect(within(dialog).getByText("baseline 2.02%; shown, not ranked")).toBeInTheDocument();
+    for (const label of ["ImageReward", "PSNR", "SSIM", "Peak VRAM"])
       expect(within(dialog).queryByText(label)).toBeNull();
-    expect(within(dialog).getByText("Submitted")).toBeInTheDocument();
+    expect(within(dialog).getByText("Verified")).toBeInTheDocument();
   });
 });

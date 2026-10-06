@@ -49,7 +49,7 @@ export interface Workload {
   caption: string;
   quality: {
     /** Key under recipe.metrics holding `{ mean, max }`. */
-    key: "lpips" | "wer";
+    key: "lpips" | "disagree";
     name: string;
     /** How the loss is measured, for the methodology section. */
     method: string;
@@ -68,14 +68,9 @@ export interface Workload {
     /** Lowest limit the grip allows; the bottom of the y axis also bounds it. */
     limitMin: number;
   };
-  /**
-   * How the page draws its recipes. "pareto": latency × loss scatter with a draggable limit
-   * line. "latency": one bar per recipe, fastest first, the loss only a pass/fail gate; for a
-   * loss too coarse to rank recipes by (speech ΔWER rests on three distinct replies).
-   */
-  chart: "pareto" | "latency";
-  /** PSNR, SSIM and ImageReward apply: the recipe dialog shows their tiles. */
-  imageScores: boolean;
+  /** Which shown-only scores the recipe dialog has tiles for: PSNR, SSIM and ImageReward for
+      an image or a clip, ASR WER for speech. */
+  scores: "image" | "speech";
   latency: {
     /** Chart axis label. */
     axis: string;
@@ -112,8 +107,7 @@ export const WORKLOADS: Record<WorkloadSlug, Workload> = {
       fmt: (v) => fmtLpips(v),
       ...IMAGE_SCALE,
     },
-    chart: "pareto",
-    imageScores: true,
+    scores: "image",
     latency: SECONDS_AXIS,
   },
   video: {
@@ -127,33 +121,31 @@ export const WORKLOADS: Record<WorkloadSlug, Workload> = {
       fmt: (v) => fmtLpips(v),
       ...IMAGE_SCALE,
     },
-    chart: "pareto",
-    imageScores: true,
+    scores: "image",
     latency: SECONDS_AXIS,
   },
   speech: {
     slug: "speech",
     label: "Speech models",
-    caption: "ms to first audio · ΔWER vs baseline",
+    caption: "ms to first audio · token disagreement vs baseline",
     quality: {
-      key: "wer",
-      name: "ΔWER",
+      key: "disagree",
+      name: "Disagreement",
       method:
-        "each reply's audio is transcribed (Qwen3-ASR-1.7B) and scored against that reply's own text; ΔWER is the recipe's word-weighted WER minus the baseline's over the same prompts, negative when the recipe makes fewer errors.",
-      fmt: (v) => fmtPp(v),
-      axis: "Quality loss (ΔWER, pp)",
-      // ticks every half point: "+0.5", "−0.5"; the unit is in the axis title
-      tick: (v) => fmtPp(v).replace(/(\.\d)0 pp$/, "$1"),
-      // ΔWER is a few tenths of a percentage point either side of zero.
+        "the baseline's reply forced through the recipe's own decode, token by token: the share of tokens where the recipe's greedy choice differs. ASR WER of the audio is shown, never ranked.",
+      fmt: (v) => fmtPct(v),
+      axis: "Quality loss (token disagreement, %)",
+      // ticks every half percent: "0.5%", "1%"
+      tick: (v) => `${+(v * 100).toFixed(1)}%`,
+      // a few percent of tokens at most for a kernel or scheduling change
       step: 0.005,
-      span: 0.015,
-      defaultLimit: 0.005,
+      span: 0.03,
+      defaultLimit: 0.02,
       limitStep: 0.001,
       digits: 4,
-      limitMin: -Infinity,
+      limitMin: 0.001,
     },
-    chart: "latency",
-    imageScores: false,
+    scores: "speech",
     latency: {
       axis: "Time to first audio (ms)",
       fmt: fmtMillis,
@@ -324,9 +316,8 @@ export const fastestUnder = (b: Benchmark, limit: number) =>
 export const fmtLpips = (v: number | null | undefined) =>
   v ? v.toFixed(3).replace(/^0/, "") : "—";
 export const fmtResolution = (r: string) => r.replace("x", "×");
-/** A signed fraction in percentage points: +1.05 pp, −0.58 pp; exactly zero is "0", null "—". */
-export const fmtPp = (v: number | null | undefined) =>
-  v == null ? "—" : v === 0 ? "0" : `${v > 0 ? "+" : "−"}${(Math.abs(v) * 100).toFixed(2)} pp`;
+/** A fraction as a percentage, 1.88%; zero or null is "—", as fmtLpips. */
+export const fmtPct = (v: number | null | undefined) => (v ? `${(v * 100).toFixed(2)}%` : "—");
 
 /** The protocol as label/value pairs for the benchmark page header; each workload has its own. */
 export function protocolRows(b: Benchmark): [string, string | number][] {

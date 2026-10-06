@@ -7,7 +7,7 @@ import {
   fmtLatency,
   fmtLoss,
   fmtLpips,
-  fmtPp,
+  fmtPct,
   lossOf,
   paretoFrontier,
   protocolRows,
@@ -48,10 +48,11 @@ describe("BENCHMARKS (loaded from data/benchmarks via import.meta.glob)", () => 
       "kernels",
       "vllm-omni-native",
     ]);
-    expect(omni.recipes.every((r) => r.status === "Submitted" && r.measuredOn === "public")).toBe(
+    expect(omni.recipes.every((r) => r.status === "Verified" && r.measuredOn === "held-out")).toBe(
       true,
     );
-    expect(omni.updated).toBe("2026-10-02");
+    expect(omni.promptSets["held-out"]).toEqual({ name: "speech-heldout-v1", count: 20 });
+    expect(omni.updated).toBe("2026-10-06");
   });
 
   it("derives baseline and updated", () => {
@@ -81,21 +82,17 @@ describe("lossOf", () => {
     expect(lossOf(bench, byId("dpcache-k20"))).toBe(0.0113);
   });
 
-  it("draws image and video as a Pareto scatter and speech as latency bars", () => {
-    expect(WORKLOADS.image.chart).toBe("pareto");
-    expect(WORKLOADS.video.chart).toBe("pareto");
-    expect(WORKLOADS.speech.chart).toBe("latency");
-  });
-
-  it("reads the signed wer on the speech benchmark and formats latency in milliseconds", () => {
+  it("reads token disagreement on the speech benchmark and formats latency in milliseconds", () => {
     const omni = findBenchmark("qwen3-omni", "rtx5090")!;
     const kernels = omni.recipes.find((r) => r.id === "kernels")!;
     expect(lossOf(omni, omni.baseline)).toBe(0);
-    expect(lossOf(omni, kernels)).toBe(-0.0058);
-    expect(fmtLoss(omni, -0.0058)).toBe("−0.58 pp");
-    expect(fmtLatency(omni, 0.213)).toBe("213 ms");
+    expect(lossOf(omni, kernels)).toBe(0.0188);
+    expect(fmtLoss(omni, 0.0188)).toBe("1.88%");
+    expect(fmtLatency(omni, 0.2221)).toBe("222 ms");
     expect(fmtLatency(bench, 13.578)).toBe("13.6s");
-    expect(WORKLOADS.speech.quality.name).toBe("ΔWER");
+    expect(WORKLOADS.speech.quality.name).toBe("Disagreement");
+    // shown, never the loss
+    expect(kernels.metrics.asrWer).toEqual({ mean: 0.0319, max: 0.3801 });
   });
 });
 
@@ -115,21 +112,22 @@ describe("paretoFrontier", () => {
     expect(paretoFrontier(bench).at(-1)?.id).toBe("sglang-native");
   });
 
-  it("puts a recipe that beats the baseline on both axes alone on the speech frontier", () => {
+  it("puts every speech recipe on the frontier, ending at the baseline", () => {
     const omni = findBenchmark("qwen3-omni", "rtx5090")!;
-    // kernels: 23 ms at ΔWER −0.58 pp. The Marlin arm (42 ms, +1.05 pp) and the baseline
-    // (213 ms, 0) are both slower with more errors, so neither is on the frontier.
+    // kernels is twice as fast as Marlin for 0.13 points more disagreement; both beat the baseline
     expect(paretoFrontier(omni).map((r) => [r.id, lossOf(omni, r)])).toEqual([
-      ["kernels", -0.0058],
+      ["kernels", 0.0188],
+      ["deterministic-marlin", 0.0175],
+      ["vllm-omni-native", 0],
     ]);
     expect(fastestUnder(omni, WORKLOADS.speech.quality.defaultLimit)?.id).toBe("kernels");
-    expect(fastestUnder(omni, -0.006)).toBeNull();
+    expect(fastestUnder(omni, 0.018)?.id).toBe("deterministic-marlin");
     expect(
       speedup(
         omni,
         omni.recipes.find((r) => r.id === "kernels")!,
       ),
-    ).toBeCloseTo(9.26, 2);
+    ).toBeCloseTo(8.96, 2);
   });
 
   it("does not mutate its input", () => {
@@ -220,16 +218,15 @@ describe("protocolRows", () => {
   });
 });
 
-describe("fmtPp", () => {
-  it("signs percentage points, keeps exactly zero apart from null", () => {
-    expect(fmtPp(0.0105)).toBe("+1.05 pp");
-    expect(fmtPp(-0.0058)).toBe("−0.58 pp");
-    expect(fmtPp(0.005)).toBe("+0.50 pp");
-    expect(fmtPp(0)).toBe("0");
-    expect(fmtPp(null)).toBe("—");
-    expect(fmtPp(undefined)).toBe("—");
-    expect(WORKLOADS.speech.quality.fmt(0)).toBe("0");
-    expect(WORKLOADS.speech.quality.fmt(null)).toBe("—");
+describe("fmtPct", () => {
+  it("shows a percentage with two decimals and zero or null as an em dash, like fmtLpips", () => {
+    expect(fmtPct(0.0188)).toBe("1.88%");
+    expect(fmtPct(0.0175)).toBe("1.75%");
+    expect(fmtPct(0)).toBe("—");
+    expect(fmtPct(null)).toBe("—");
+    expect(fmtPct(undefined)).toBe("—");
+    expect(WORKLOADS.speech.quality.tick(0.015)).toBe("1.5%");
+    expect(WORKLOADS.speech.quality.tick(0.01)).toBe("1%");
   });
 });
 

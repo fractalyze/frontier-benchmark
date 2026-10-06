@@ -120,21 +120,17 @@ describe("ParetoFigure on the speech page", () => {
     return { onLimitChange, container, slider: screen.getByRole("slider") };
   };
 
-  it("renders every recipe with ΔWER in signed percentage points", () => {
+  it("renders every recipe with token disagreement in percent, all on the frontier", () => {
     const { slider } = renderSpeech();
     expect(document.querySelectorAll("[data-recipe]")).toHaveLength(3);
-    expect(slider).toHaveAttribute("aria-valuetext", "ΔWER ≤ +0.50 pp");
+    expect(slider).toHaveAttribute("aria-valuetext", "Disagreement ≤ 2.00%");
     expect(screen.getByText("Time to first audio (ms)")).toBeInTheDocument();
-    expect(screen.getByText("Quality loss (ΔWER, pp)")).toBeInTheDocument();
-    // only kernels is on the frontier; the baseline is slower with more errors
-    expect(document.querySelector('[data-recipe="kernels"]')).toHaveAttribute(
-      "data-frontier",
-      "true",
-    );
-    expect(document.querySelector('[data-recipe="vllm-omni-native"]')).toHaveAttribute(
-      "data-frontier",
-      "false",
-    );
+    expect(screen.getByText("Quality loss (token disagreement, %)")).toBeInTheDocument();
+    for (const id of ["kernels", "deterministic-marlin", "vllm-omni-native"])
+      expect(document.querySelector(`[data-recipe="${id}"]`)).toHaveAttribute(
+        "data-frontier",
+        "true",
+      );
   });
 
   it("labels latency ticks in milliseconds, every 25 ms", () => {
@@ -146,33 +142,18 @@ describe("ParetoFigure on the speech page", () => {
     expect(xLabels).toEqual(["0", "25", "50", "75", "100", "125", "150", "175", "200", "225"]);
   });
 
-  it("extends the loss axis below zero, ticks every half point, and draws the zero line", () => {
+  it("starts the loss axis at zero and ticks every half percent", () => {
     const { container } = renderSpeech();
     const yLabels = [...container.querySelectorAll("text[text-anchor='end'].num")].map(
       (t) => t.textContent,
     );
-    expect(yLabels).toEqual(["−0.5", "0", "+0.5", "+1.0", "+1.5"]);
-    expect(screen.getByTestId("zero-line")).toBeInTheDocument();
+    expect(yLabels).toEqual(["0", "0.5%", "1%", "1.5%", "2%", "2.5%", "3%"]);
   });
 
-  it("lets the limit go negative, clamped to the bottom of the axis", () => {
-    const { slider, onLimitChange } = renderSpeech(-0.004);
-    expect(Number(slider.getAttribute("aria-valuemin"))).toBeLessThan(-0.0058);
+  it("never lets the limit below 0.1%", () => {
+    const { slider, onLimitChange } = renderSpeech(0.001);
+    expect(Number(slider.getAttribute("aria-valuemin"))).toBe(0.001);
     fireEvent.keyDown(slider, { key: "ArrowDown" });
-    expect(onLimitChange).toHaveBeenLastCalledWith(-0.005);
-    fireEvent.keyDown(slider, { key: "ArrowDown", shiftKey: true });
-    // -0.008 is below the axis, which ends at -0.0083 rounded to 4 decimals
-    expect(onLimitChange).toHaveBeenLastCalledWith(-0.008);
-    cleanup();
-    const low = renderSpeech(-0.0083);
-    fireEvent.keyDown(low.slider, { key: "ArrowDown" });
-    expect(low.onLimitChange).toHaveBeenLastCalledWith(
-      Number(low.slider.getAttribute("aria-valuemin")),
-    );
-  });
-
-  it("draws no zero line on an image page, where the axis starts at zero", () => {
-    renderFigure(0.05);
-    expect(screen.queryByTestId("zero-line")).toBeNull();
+    expect(onLimitChange).toHaveBeenLastCalledWith(0.001);
   });
 });

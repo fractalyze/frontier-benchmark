@@ -5,10 +5,9 @@ model × GPU. Each row is a **recipe** (a combination of optimizations) measured
 against the engine's native baseline under one fixed protocol. Live at
 https://frontier-fractalyze.vercel.app (currently behind Vercel Authentication).
 
-Published pages: Qwen-Image 2.1 × RTX 5090 (10 recipes) and FLUX.2 [klein] 4B ×
-RTX 5090 (4 recipes), all `Verified` on a private held-out set with the harness
-in `bench/`; Qwen3-Omni × RTX 5090 (speech, 3 recipes), `Submitted` on the
-public prompts until the harness can render and score speech.
+Published pages: Qwen-Image 2.1 × RTX 5090 (10 recipes), FLUX.2 [klein] 4B ×
+RTX 5090 (4 recipes) and Qwen3-Omni × RTX 5090 (speech, 3 recipes), all
+`Verified` on a private held-out set with the harness in `bench/`.
 
 ## Docs
 

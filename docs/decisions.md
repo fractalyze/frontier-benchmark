@@ -1,7 +1,7 @@
 # Decisions
 
 Scope: what was settled, why, and what was rejected. Change a decision in a
-PR that updates this page. Status: current · updated 2026-10-04.
+PR that updates this page. Status: current · updated 2026-10-06.
 
 ## Benchmark
 
@@ -13,9 +13,9 @@ PR that updates this page. Status: current · updated 2026-10-04.
   page's pinned checkpoint (Qwen3-Omni: AWQ 4-bit, stock vLLM-Omni). Weights are never changed: distilled or fine-tuned checkpoints are not
   recipes.
 - **Quality axis** = one loss against the baseline's output for the same
-  prompt and seed: LPIPS mean for image and video, ΔWER for speech.
-  PSNR, SSIM and ImageReward are shown but never drive the frontier. Rejected:
-  FID (needs a distribution, not a pair).
+  prompt and seed: LPIPS mean for image and video, token disagreement for
+  speech. PSNR, SSIM, ImageReward and a speech page's ASR WER are shown but
+  never drive the frontier. Rejected: FID (needs a distribution, not a pair).
 - **Speed axis** = latency of one request. Rejected: throughput and
   concurrency (without a load level, images/s is just 1/latency). Deferred:
   serving cost, which would return as its own protocol.
@@ -24,22 +24,34 @@ PR that updates this page. Status: current · updated 2026-10-04.
   set by the submitter (definitions in
   [data-model.md](data-model.md#status-and-prompt-sets)). This is what stops a
   recipe from being tuned to the prompts it is scored on.
-- **ΔWER is signed** (2026-10-02): recipe WER minus baseline WER, each reply's
-  audio scored against its own text. A recipe can make fewer transcription
-  errors than the baseline (Qwen3-Omni `kernels`: −0.58 pp), and clipping that
-  at zero would hide a real measurement. LPIPS stays nonnegative.
+- **Speech loss is forced-decode token disagreement** (2026-10-06,
+  `bench/agree.py`): the baseline's reply to each prompt forced through the
+  recipe's thinker, one token per decode step on the recipe's own kernels, and
+  the share of steps where the recipe's greedy token differs. Every step sees
+  identical input, so it is continuous and 0 for the same model, as LPIPS is
+  for an image. Rejected, each measured first: ΔWER (2026-10-02 to 10-06;
+  recipe minus baseline ASR WER, each reply's audio against its own text: it
+  does not compare a recipe to the baseline at all, and the talker samples, so
+  it moved between runs); word-level WER between the recipe's and the
+  baseline's free replies (measures where greedy decoding branches: 0–94% per
+  prompt on the held-out set for both fork recipes, and the megakernel recipe
+  read 1% on a prompt and 44% over the set); an LLM judge (a second subjective
+  model, not a loss against the baseline). ASR WER stays as a shown score.
 - **Protocol is per workload** (2026-10-02): `benchmark.json` is a union on
   `workload`; image and video keep resolution/steps/guidance/attention/offload,
   speech has `decoding` and `output`. Rejected: one protocol with optional
   fields (a speech page would silently accept image-only fields).
-- **Speech pages are `Submitted`** until `bench/` can render and score speech:
-  the harness is image-only, so nothing on a speech page is re-measured on a
-  held-out set yet.
+- **Speech is re-measured like image** (2026-10-06): `bench.speak` serves each
+  recipe on vLLM-Omni, `bench.agree` and `bench.score_speech` score it, on a
+  private 20-prompt held-out set (`speech-heldout-v1`), so Qwen3-Omni's recipes
+  are `Verified`. Its numbers differ from the showcase's report: time to first
+  audio 7–14% slower on the showcase's own prompts, on this machine's driver
+  580 and `torch 2.13.0+cu130` (the showcase: 595, cu132).
 - **Protocol fields are page-header summaries** (2026-10-04): short values
   (`AWQ W4A16`, `greedy, seed 42`), not the full provenance. The checkpoint
-  snapshot and every sampling parameter live in the report each recipe's
-  `sourceUrl` points to (Qwen3-Omni: `measurements.md`, cyankiwi AWQ snapshot
-  `d6e1eff8`, temperature 0, repetition penalty 1.1). Rejected: the full
+  snapshot and every sampling parameter live in the run's configs and
+  `bench/speech.py` (Qwen3-Omni: cyankiwi AWQ snapshot `d6e1eff8`; thinker
+  temperature 0, talker seed 42, in `configs/production.yaml`). Rejected: the full
   strings in the header, which wrapped over three lines on a phone.
 - **Protocol version** is per benchmark (`v0.5` for Qwen-Image 2.1, `v0.1` for
   FLUX.2 klein) and bumps when the protocol changes.
@@ -83,16 +95,11 @@ PR that updates this page. Status: current · updated 2026-10-04.
 - **Frontier points are solid, dominated points are hollow rings**
   (2026-10-01), so the frontier reads at a glance; points above the limit are
   faded in both cases.
-- **Speech draws latency bars with a quality gate, not a Pareto scatter**
-  (2026-10-04; `chart` in `WORKLOADS`). Its ΔWER rests on three distinct
-  replies (each prompt's text repeats five times) and swings −2.2 to +1.9 pp
-  per prompt, so placing recipes on a ΔWER axis ranked noise; and with one
-  recipe ahead on both axes the scatter's frontier was a single point with the
-  baseline drawn as dominated. The page keeps "fastest recipe within ε": one
-  bar per recipe, fastest first, ΔWER only passes or fails a gate set with −
-  and +. Rejected: absolute WER on the y axis with per-prompt error bars (same
-  three samples); keeping the scatter with the baseline forced onto the
-  frontier (draws a trade-off the data does not show).
+- **Speech plots on the same Pareto scatter as image** (2026-10-06). From
+  2026-10-04 to 10-06 it drew latency bars with a pass/fail ΔWER gate,
+  because ΔWER was too coarse to rank recipes on an axis; with token
+  disagreement the loss is continuous and nonnegative, the frontier ends at
+  the baseline, and the bars were removed.
 
 ## Harness and tooling
 

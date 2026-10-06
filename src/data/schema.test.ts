@@ -118,12 +118,21 @@ describe("speech", () => {
     expect(BenchmarkFileSchema.safeParse(b).success).toBe(false);
   });
 
-  it("accepts a signed wer: a recipe can make fewer errors than the baseline", () => {
+  it("takes token disagreement and ASR WER, both nonnegative", () => {
     const r = kernels();
-    expect(metricsOf(r)["wer"]).toEqual({ mean: -0.0058, max: 0.003 });
+    expect(metricsOf(r)["disagree"]).toEqual({ mean: 0.0188, max: 0.0536 });
     expect(RecipeFileSchema.safeParse(r).success).toBe(true);
-    metricsOf(r)["wer"] = { mean: -0.01, max: -0.002 };
-    expect(RecipeFileSchema.safeParse(r).success).toBe(true);
+    for (const key of ["disagree", "asrWer"]) {
+      const bad = kernels();
+      metricsOf(bad)[key] = { mean: -0.01, max: 0.02 };
+      expect(RecipeFileSchema.safeParse(bad).success, key).toBe(false);
+    }
+  });
+
+  it("no longer accepts the signed ΔWER it replaced", () => {
+    const r = kernels();
+    metricsOf(r)["wer"] = { mean: -0.0058, max: 0.003 };
+    expect(RecipeFileSchema.safeParse(r).success).toBe(false);
   });
 
   it("still rejects a negative lpips", () => {
@@ -132,10 +141,12 @@ describe("speech", () => {
     expect(RecipeFileSchema.safeParse(r).success).toBe(false);
   });
 
-  it("requires wer on a non-baseline speech recipe", () => {
+  it("requires token disagreement on a non-baseline speech recipe", () => {
     const f = clone();
-    metricsOf(f[`${SPEECH}/recipes/kernels.json`]!)["wer"] = null;
-    expect(() => buildBenchmarks(f)).toThrow(/kernels\.json: non-baseline recipe is missing wer/);
+    metricsOf(f[`${SPEECH}/recipes/kernels.json`]!)["disagree"] = null;
+    expect(() => buildBenchmarks(f)).toThrow(
+      /kernels\.json: non-baseline recipe is missing disagree/,
+    );
   });
 });
 
