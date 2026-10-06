@@ -1,0 +1,13 @@
+{
+  "schema": "vllm-omni-runtime",
+  "deploy": "data/benchmarks/qwen3-omni/rtx5090/configs/control_marlin.yaml",
+  "mps": true,
+  "env": {
+    "VLLM_OMNI_DETERMINISTIC_MARLIN": "1",
+    "VLLM_OMNI_CODE_PREDICTOR_MEGAKERNEL": "1",
+    "VLLM_OMNI_CODE_PREDICTOR_MEGAKERNEL_CTAS": "96",
+    "VLLM_OMNI_CODE2WAV_STREAM_GRAPHS": "1",
+    "VLLM_OMNI_FRAME0": "1",
+    "VLLM_OMNI_EVENT_DRIVEN_ORCH": "1"
+  }
+}

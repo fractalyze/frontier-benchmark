@@ -23,16 +23,20 @@ the recipe, scores it against the baseline, and rewrites
 
 ## Pieces
 
-| module                 | does                                                                                                                                                                                                                        |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `protocol.py`          | `benchmark.json` protocol + recipe `configPath` → engine kwargs, process env, request kwargs. Pure.                                                                                                                         |
-| `prompts.py`           | loads a corpus file (`splits.<name>[]` of `{pair_id, prompt, seed, category}`).                                                                                                                                             |
-| `render.py`            | one engine configuration per process: load once, 10 warmup renders on calibration prompts, then every pair timed (client wall, `peak_memory_mb`) with a contention stamp. Writes PNGs, `rows.jsonl`, `manifest.json`.       |
-| `score.py`             | LPIPS (AlexNet, CPU FP32), PSNR, SSIM vs the baseline image of the same prompt+seed on white-composited RGB; ImageReward (absolute) through `image_reward_worker.py`. Writes `scores.json`.                                 |
-| `emit.py`              | run → recipe JSON. Refuses a DIRTY run. Pure `apply()` is unit-tested.                                                                                                                                                      |
-| `run.py`               | holds the GPU lock and chains the three.                                                                                                                                                                                    |
-| `calibrate.py`         | records the engine's DPCache calibration captures under a recipe's runtime (`sglang.multimodal_gen.tools.dpcache_calibrate record`/`plan`) and writes one schedule per budget to `configs/dpcache-<recipe>/K<budget>.json`. |
-| `env.py`, `sampler.py` | GPU0 pin, lock directories, `nvidia-smi` stamps and under-load clock/temperature sampling (from qwen-image-opt).                                                                                                            |
+| module                         | does                                                                                                                                                                                                                             |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `protocol.py`                  | `benchmark.json` protocol + recipe `configPath` → engine kwargs, process env, request kwargs. Pure.                                                                                                                              |
+| `prompts.py`                   | loads a corpus file (`splits.<name>[]` of `{pair_id, prompt, seed, category}`).                                                                                                                                                  |
+| `render.py`                    | one engine configuration per process: load once, 10 warmup renders on calibration prompts, then every pair timed (client wall, `peak_memory_mb`) with a contention stamp. Writes PNGs, `rows.jsonl`, `manifest.json`.            |
+| `score.py`                     | LPIPS (AlexNet, CPU FP32), PSNR, SSIM vs the baseline image of the same prompt+seed on white-composited RGB; ImageReward (absolute) through `image_reward_worker.py`. Writes `scores.json`.                                      |
+| `emit.py`                      | run → recipe JSON. Refuses a DIRTY run. Pure `apply()` is unit-tested.                                                                                                                                                           |
+| `run.py`                       | holds the GPU lock and chains the three.                                                                                                                                                                                         |
+| `calibrate.py`                 | records the engine's DPCache calibration captures under a recipe's runtime (`sglang.multimodal_gen.tools.dpcache_calibrate record`/`plan`) and writes one schedule per budget to `configs/dpcache-<recipe>/K<budget>.json`.      |
+| `env.py`, `sampler.py`         | GPU0 pin, lock directories, `nvidia-smi` stamps and under-load clock/temperature sampling (from qwen-image-opt).                                                                                                                 |
+| `speech.py`                    | speech pages: checkpoint registry, recipe → `SpeechSpec` (engine checkout, deploy config, MPS, env switches), prompt loading, WER sums. Pure.                                                                                    |
+| `speak.py`                     | serves one speech recipe (`vllm serve --omni`, under a private CUDA MPS daemon when the recipe asks), sends the warmups, then every prompt `--repeats` times; writes each reply's text and audio, `rows.jsonl`, `manifest.json`. |
+| `agree.py`, `forced_decode.py` | the speech loss: serves the recipe with a logits processor on its thinker that forces the baseline's replies token by token and records whether the recipe's own greedy token agreed. Writes `agree.json`.                       |
+| `score_speech.py`              | ASR WER (Qwen3-ASR-1.7B on vLLM) of every reply's audio vs its own text. Writes `scores.json`.                                                                                                                                   |
 
 `protocol.MODELS` maps a benchmark's model slug to its checkpoint (repo, pinned
 revision, engine model id); `protocol.offload` picks the residency (`none` keeps
@@ -42,6 +46,11 @@ every component on the GPU, as FLUX.2 klein 4B does). Pass `--model` to
 The three recipe config shapes (`sglang-runtime`, a DPCache schedule file,
 `sglang-cache-dit-params`) and the calibration command are described in
 [docs/adding-a-recipe.md](../docs/adding-a-recipe.md#1-describe-the-configuration).
+
+`run.py` reads `benchmark.json.workload`: a speech page goes through `speak`,
+`agree` and `score_speech` instead of `render` and `score` (the baseline is
+forced through itself too, and the run stops unless it agrees at every step), and `--repeats` (default 3) sets
+how many times each prompt is sent.
 
 ## What a number means
 
@@ -53,6 +62,21 @@ The three recipe config shapes (`sglang-runtime`, a DPCache schedule file,
   prompt and seed (the baseline is `benchmark.json.baselineRecipe`); the baseline's
   own values are `null`.
 - **imageReward**: ImageReward-v1.0 of (prompt, image), absolute, baseline included.
+- **speech latencyS**: median time to first audio (request sent to the first audio
+  chunk of the streamed reply) over every prompt × repeat, one request at a time,
+  after 3 warmups. `peakVramGb` is `null`: vLLM-Omni reserves a fixed share of the
+  card per stage.
+- **speech disagree**: the baseline's first reply to each prompt (end-of-turn token
+  included) forced through the recipe's thinker, one token per decode step on the
+  recipe's own kernels; `mean` is the share of all forced steps where the recipe's
+  greedy token differed, `max` the worst prompt's share. Forcing keeps every step on
+  identical input, so one flipped token does not send the rest of the reply down
+  another path, as it does when both decode freely (where a word-level WER between
+  the two replies swung from 0 to 94% per prompt). Null for the baseline, which must
+  measure 0 against itself.
+- **speech asrWer**: every reply's audio transcribed by Qwen3-ASR-1.7B and scored
+  against that reply's own text, baseline included. Shown, never the frontier: the
+  talker samples, so audio is not compared across recipes.
 - **held-out**: the private corpus (`BENCH_HELDOUT`), 10 fresh prompts x 2 seeds,
   is never committed. A recipe measured on it is `Verified`.
 
@@ -66,15 +90,17 @@ toolkit (`BENCH_CUDA_HOME`). Every machine-specific location is an environment
 variable; the defaults in `bench/env.py`, `bench/run.py` and `bench/score.py`
 are the reference machine's.
 
-| variable              | meaning                                                       |
-| --------------------- | ------------------------------------------------------------- |
-| `BENCH_GPU`           | the one GPU index the harness pins (default `0`)              |
-| `HF_HOME`             | Hugging Face cache holding the pinned checkpoints             |
-| `BENCH_HELDOUT`       | private held-out corpus (`splits.heldout[]`, never committed) |
-| `BENCH_RUNS`          | root for run directories                                      |
-| `BENCH_CUDA_HOME`     | CUDA toolkit for JIT kernels                                  |
-| `IMAGE_REWARD_PYTHON` | python of the ImageReward venv                                |
-| `BENCH_GPU_LOCKS`     | colon-separated lock directories sibling jobs honour          |
+| variable              | meaning                                                         |
+| --------------------- | --------------------------------------------------------------- |
+| `BENCH_GPU`           | the one GPU index the harness pins (default `0`)                |
+| `HF_HOME`             | Hugging Face cache holding the pinned checkpoints               |
+| `BENCH_HELDOUT`       | private held-out corpus (`splits.heldout[]`, never committed)   |
+| `BENCH_RUNS`          | root for run directories                                        |
+| `BENCH_CUDA_HOME`     | CUDA toolkit for JIT kernels                                    |
+| `IMAGE_REWARD_PYTHON` | python of the ImageReward venv                                  |
+| `BENCH_GPU_LOCKS`     | colon-separated lock directories sibling jobs honour            |
+| `BENCH_VLLM_OMNI`     | speech engines: `<version>/` checkouts, `venv-<version>/` venvs |
+| `BENCH_ASR_ENGINE`    | which engine venv serves the ASR model (default `379804a6`)     |
 
 ```bash
 SGLANG=$HOME/src/sglang-showcase            # any location

@@ -34,7 +34,7 @@
     "the three stages share the GPU under CUDA MPS",
     "PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
   ],
-  "configPath": "data/benchmarks/qwen3-omni/rtx5090/configs/control_marlin.yaml",
+  "configPath": "data/benchmarks/qwen3-omni/rtx5090/configs/deterministic-marlin.runtime.json",
   "metrics": {
     "latencyS": 0.042,
     "peakVramGb": null,

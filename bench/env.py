@@ -14,6 +14,7 @@ import json
 import os
 import subprocess
 import time
+from collections.abc import Iterable
 
 BENCH_GPU = os.environ.get("BENCH_GPU", "0")
 # Pinned before torch is imported anywhere in the process.
@@ -39,13 +40,15 @@ def _ancestors(pid: int) -> set[int]:
     return chain
 
 
-def _is_ours(pid: int) -> bool:
-    """SGLang runs the model in a child worker; anything we started is ours."""
-    return bool(_ancestors(pid) & ({os.getpid()} | _ancestors(os.getpid())))
+def _is_ours(pid: int, extra: frozenset[int] = frozenset()) -> bool:
+    """SGLang runs the model in a child worker; anything we started is ours, and so
+    is any process in `extra` (a CUDA MPS server: its daemon detaches from us)."""
+    return bool(_ancestors(pid) & ({os.getpid()} | _ancestors(os.getpid()) | extra))
 
 
-def gpu_stamp() -> dict:
+def gpu_stamp(extra_ours: Iterable[int] = ()) -> dict:
     """Physical state of the pinned GPU plus any foreign compute processes."""
+    extra = frozenset(extra_ours)
     out = subprocess.run(
         ["nvidia-smi", f"--query-gpu={_FIELDS}", "--format=csv,noheader,nounits", "-i", BENCH_GPU],
         capture_output=True, text=True, check=True,
@@ -64,7 +67,7 @@ def gpu_stamp() -> dict:
             pid = int(line.split(",")[0].strip())
         except ValueError:
             continue
-        if not _is_ours(pid):
+        if not _is_ours(pid, extra):
             foreign.append(line.strip())
     return {
         "gpu_index": int(idx), "gpu_name": name,
