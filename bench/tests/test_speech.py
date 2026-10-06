@@ -78,21 +78,6 @@ def run_dir(tmp_path, name, texts, repeats=1):
     return d
 
 
-def test_text_wer_compares_each_prompt_with_the_baselines_reply(tmp_path):
-    base = run_dir(tmp_path, "base", {"p0": "the sky is blue today", "p1": "one two"})
-    cand = run_dir(tmp_path, "cand", {"p0": "the sky is very blue today", "p1": "one two"})
-    summary, by_pair = score_speech.text_wer(score_speech.first_texts(base), score_speech.first_texts(cand), str.lower)
-    assert summary == {"mean": round(1 / 7, 4), "max": 0.2}
-    assert by_pair == {"p0": 0.2, "p1": 0.0}
-
-
-def test_text_wer_refuses_runs_over_different_prompts(tmp_path):
-    base = run_dir(tmp_path, "base", {"p0": "a"})
-    cand = run_dir(tmp_path, "cand", {"p1": "a"})
-    with pytest.raises(ValueError, match="different prompts"):
-        score_speech.text_wer(score_speech.first_texts(base), score_speech.first_texts(cand), str)
-
-
 def test_asr_wer_scores_every_reply_against_its_own_text(tmp_path):
     run = run_dir(tmp_path, "r", {"p0": "hello there friend"}, repeats=2)
     transcripts = {"0_r0": "hello there friend", "0_r1": "hello the friend"}
@@ -104,23 +89,29 @@ SPEECH_MANIFEST = {"workload": "speech", "ttfa": {"p50": 0.02349}, "pairs": 20, 
                    "engine_commit": "379804a68ea8aa77f703992d00961e884ebbe5f7"}
 
 
-def test_emit_writes_ttfa_text_wer_and_asr_wer_and_verifies_held_out():
-    scores = {"reference": "/runs/vllm-omni-native", "summary": {
-        "wer": {"mean": 0.031, "max": 0.12}, "asrWer": {"mean": 0.011, "max": 0.04}}}
+def test_emit_writes_ttfa_token_disagreement_and_asr_wer_and_verifies_held_out():
+    scores = {"summary": {"asrWer": {"mean": 0.011, "max": 0.04}}}
+    agree = {"summary": {"mean": 0.0188, "max": 0.0536}}
     r, b = emit.apply(recipe("kernels"), BENCH, SPEECH_MANIFEST, scores, prompt_set="speech-heldout-v1",
-                      measured_on="held-out", date="2026-10-05", engine_version="379804a6")
+                      measured_on="held-out", date="2026-10-05", engine_version="379804a6", agree=agree)
     assert r["metrics"] == {"latencyS": 0.023, "peakVramGb": None, "lpips": None,
-                            "wer": {"mean": 0.031, "max": 0.12}, "asrWer": {"mean": 0.011, "max": 0.04},
+                            "disagree": {"mean": 0.0188, "max": 0.0536}, "asrWer": {"mean": 0.011, "max": 0.04},
                             "psnr": None, "ssim": None, "imageReward": None}
     assert r["status"] == "Verified" and b["promptSets"]["held-out"] == {"name": "speech-heldout-v1", "count": 20}
 
 
-def test_emit_keeps_the_baselines_text_wer_null_but_its_asr_wer():
-    scores = {"reference": None, "summary": {"wer": None, "asrWer": {"mean": 0.016, "max": 0.05}}}
+def test_emit_keeps_the_baselines_disagreement_null_but_its_asr_wer():
+    scores = {"summary": {"asrWer": {"mean": 0.016, "max": 0.05}}}
     r, _ = emit.apply(recipe("vllm-omni-native", "69de153f"), BENCH, SPEECH_MANIFEST, scores,
                       prompt_set="speech-heldout-v1", measured_on="held-out", date="2026-10-05",
                       engine_version=None)
-    assert r["metrics"]["wer"] is None and r["metrics"]["asrWer"] == {"mean": 0.016, "max": 0.05}
+    assert r["metrics"]["disagree"] is None and r["metrics"]["asrWer"] == {"mean": 0.016, "max": 0.05}
+
+
+def test_emit_refuses_a_speech_recipe_without_its_agreement():
+    with pytest.raises(ValueError, match="agree.json"):
+        emit.apply(recipe("kernels"), BENCH, SPEECH_MANIFEST, {"summary": {"asrWer": None}},
+                   prompt_set="s", measured_on="held-out", date="2026-10-05", engine_version=None)
 
 
 def test_an_mps_server_counted_as_ours_is_not_foreign(monkeypatch):

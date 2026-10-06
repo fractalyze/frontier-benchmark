@@ -14,12 +14,12 @@ The engine is the recipe's `engine.version`: a vLLM-Omni checkout at
 
 Quality is two numbers per recipe:
 
-- text WER vs the baseline (the frontier's loss, like LPIPS for an image): the
-  recipe's reply text against the baseline's reply text for the same prompt and
-  seed. The thinker decodes greedily, so 0 means the recipe said the same words.
-- ASR WER (shown, never the frontier): each reply's audio transcribed and
-  scored against that reply's own text, baseline included. The talker samples,
-  so audio is never compared across recipes.
+- token disagreement with the baseline (the frontier's loss, like LPIPS for an
+  image; bench/agree.py): the baseline's replies forced through the recipe's
+  thinker, counting the steps where the recipe's own greedy token differs.
+- ASR WER (shown, never the frontier; bench/score_speech.py): each reply's
+  audio transcribed and scored against that reply's own text, baseline
+  included. The talker samples, so audio is never compared across recipes.
 """
 
 from __future__ import annotations
@@ -147,3 +147,11 @@ def wer_summary(per_pair: dict[str, list[tuple[int, int]]]) -> dict:
     worst = max(sum(e for e, _ in rows) / max(1, sum(w for _, w in rows)) for rows in per_pair.values())
     return dict(mean=round(errors / words, 4), max=round(worst, 4))
 
+
+def read_rows(run: Path) -> list[dict]:
+    """A speak run's rows.jsonl: one record per reply."""
+    return [json.loads(line) for line in (Path(run) / "rows.jsonl").read_text().splitlines() if line.strip()]
+
+
+def read_manifest(run: Path) -> dict:
+    return json.loads((Path(run) / "manifest.json").read_text())

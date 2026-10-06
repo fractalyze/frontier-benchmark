@@ -1,18 +1,15 @@
-"""Score a speech run: text WER vs the baseline's replies, and ASR WER of its audio.
+"""Score a speech run's audio: ASR WER of every reply against its own text.
 
-    python -m bench.score_speech --candidate <runs>/kernels --reference <runs>/vllm-omni-native
+    python -m bench.score_speech --candidate <runs>/kernels --asr-venv <venv>
 
-`wer` (the frontier's loss): each prompt's reply text against the baseline
-reply for the same prompt and seed, word-weighted over the prompts; `max` is
-the worst prompt. Omitted for the baseline itself (`--reference` not given).
-
-`asrWer` (shown only): every reply's audio transcribed by Qwen3-ASR-1.7B and
-scored against that reply's own text. Transcripts are cached in
+`asrWer` (shown, never the frontier's loss): every reply's audio transcribed by
+Qwen3-ASR-1.7B and scored against that reply's own text, baseline included;
+`max` is the worst prompt. Texts are normalized with openai-whisper's
+EnglishTextNormalizer, as in the showcase's own WER. Transcripts are cached in
 `<run>/asr.jsonl`; without `--asr-url` an ASR server is started from the venv
-`--asr-venv` for the duration.
+`--asr-venv` for the duration. Writes `<run>/scores.json`.
 
-Texts are normalized with openai-whisper's EnglishTextNormalizer, as in the
-showcase's own WER. Writes `<run>/scores.json`.
+The loss itself is bench/agree.py's token disagreement with the baseline.
 """
 
 from __future__ import annotations
@@ -34,28 +31,10 @@ from bench import speech  # noqa: E402
 ASR_PORT = 8000
 
 
-def rows(run: pathlib.Path) -> list[dict]:
-    return [json.loads(line) for line in (run / "rows.jsonl").read_text().splitlines() if line.strip()]
-
-
-def first_texts(run: pathlib.Path) -> dict[str, str]:
-    """Each prompt's first reply text, keyed by pair id."""
-    return {r["pair_id"]: (run / f"{r['index']}_r0.txt").read_text() for r in rows(run) if r["repeat"] == 0}
-
-
-def text_wer(reference: dict[str, str], candidate: dict[str, str], normalize) -> tuple[dict, dict]:
-    """Candidate replies against the baseline's, prompt by prompt."""
-    if reference.keys() != candidate.keys():
-        raise ValueError("candidate and reference runs cover different prompts")
-    per_pair = {pid: [speech.word_errors(normalize(reference[pid]), normalize(candidate[pid]))]
-                for pid in reference}
-    return speech.wer_summary(per_pair), {pid: _ratio(v) for pid, v in per_pair.items()}
-
-
 def asr_wer(run: pathlib.Path, transcripts: dict[str, str], normalize) -> tuple[dict, dict]:
     """Every reply's transcript against that reply's own text."""
     per_pair: dict[str, list[tuple[int, int]]] = {}
-    for r in rows(run):
+    for r in speech.read_rows(run):
         name = f"{r['index']}_r{r['repeat']}"
         own = normalize((run / f"{name}.txt").read_text())
         per_pair.setdefault(r["pair_id"], []).append(speech.word_errors(own, normalize(transcripts[name])))
@@ -75,7 +54,7 @@ def transcribe(run: pathlib.Path, asr_url: str) -> dict[str, str]:
     if cache.exists():
         done = {d["name"]: d["text"] for d in map(json.loads, cache.read_text().splitlines()) if d}
     with open(cache, "a") as fh:
-        for r in rows(run):
+        for r in speech.read_rows(run):
             name = f"{r['index']}_r{r['repeat']}"
             if name in done:
                 continue
@@ -124,18 +103,12 @@ def asr_server(venv: pathlib.Path, log: pathlib.Path, port: int = ASR_PORT):
                 server.wait()
 
 
-def score(candidate: pathlib.Path, reference: pathlib.Path | None, asr_url: str) -> dict:
+def score(candidate: pathlib.Path, asr_url: str) -> dict:
     from whisper.normalizers import EnglishTextNormalizer
 
     normalize = EnglishTextNormalizer()
     asr, asr_by_pair = asr_wer(candidate, transcribe(candidate, asr_url), normalize)
-    out = dict(reference=str(reference) if reference else None, summary=dict(wer=None, asrWer=asr),
-               per_pair={pid: dict(asrWer=v) for pid, v in asr_by_pair.items()})
-    if reference is not None:
-        wer, by_pair = text_wer(first_texts(reference), first_texts(candidate), normalize)
-        out["summary"]["wer"] = wer
-        for pid, v in by_pair.items():
-            out["per_pair"][pid]["wer"] = v
+    out = dict(summary=dict(asrWer=asr), per_pair={pid: dict(asrWer=v) for pid, v in asr_by_pair.items()})
     (candidate / "scores.json").write_text(json.dumps(out, indent=2) + "\n")
     return out
 
@@ -143,17 +116,16 @@ def score(candidate: pathlib.Path, reference: pathlib.Path | None, asr_url: str)
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--candidate", type=pathlib.Path, required=True)
-    ap.add_argument("--reference", type=pathlib.Path, default=None, help="the baseline run; omit for the baseline")
     ap.add_argument("--asr-url", default=None)
     ap.add_argument("--asr-venv", type=pathlib.Path, default=None, help="venv whose vllm serves the ASR model")
     args = ap.parse_args()
     if args.asr_url:
-        out = score(args.candidate, args.reference, args.asr_url)
+        out = score(args.candidate, args.asr_url)
     else:
         if args.asr_venv is None:
             ap.error("give --asr-url or --asr-venv")
         with asr_server(args.asr_venv, args.candidate / "asr-server.log") as url:
-            out = score(args.candidate, args.reference, url)
+            out = score(args.candidate, url)
     print(json.dumps(out["summary"], indent=2))
     print("SCORE_OK")
     return 0

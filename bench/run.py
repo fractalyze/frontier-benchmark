@@ -55,12 +55,22 @@ def speak(args, recipe_id: str, out: pathlib.Path) -> None:
     subprocess.run(cmd, check=True, cwd=str(protocol.REPO))
 
 
-def score_speech(reference: pathlib.Path | None, candidate: pathlib.Path) -> None:
+def agree(args, recipe_id: str, reference: pathlib.Path, out: pathlib.Path) -> None:
+    """Token disagreement with the baseline; the baseline through itself must give none."""
+    cmd = [sys.executable, "-m", "bench.agree", "--model", args.model, "--hardware", args.hardware,
+           "--recipe", recipe_id, "--reference", str(reference), "--out", str(out)]
+    if args.limit:
+        cmd += ["--limit", str(args.limit)]
+    subprocess.run(cmd, check=True, cwd=str(protocol.REPO))
+    summary = json.loads((out / "agree.json").read_text())["summary"]
+    if out == reference and summary["mean"] != 0:
+        raise RuntimeError(f"the baseline disagrees with its own replies ({summary}); forcing is broken")
+
+
+def score_speech(candidate: pathlib.Path) -> None:
     # The ASR model is served from the newest engine venv on this machine's list.
     venv = speech.VLLM_OMNI_ROOT / f"venv-{os.environ.get('BENCH_ASR_ENGINE', '379804a6')}"
     cmd = [sys.executable, "-m", "bench.score_speech", "--candidate", str(candidate), "--asr-venv", str(venv)]
-    if reference is not None:
-        cmd += ["--reference", str(reference)]
     subprocess.run(cmd, check=True, cwd=str(protocol.REPO))
 
 
@@ -95,9 +105,11 @@ def main() -> int:
                     speak(args, recipe_id, out)
                 else:
                     render(args, recipe_id, out, protocol.spec_for(args.model, args.hardware, recipe_id))
+            if is_speech and (args.rerender or not (out / "agree.json").exists()):
+                agree(args, recipe_id, args.runs / baseline_id, out)
             if args.rerender or not (out / "scores.json").exists():
                 if is_speech:
-                    score_speech(reference, out)
+                    score_speech(out)
                 else:
                     score(reference, out, not args.no_image_reward)
             if args.no_emit or (recipe_id == baseline_id and baseline_id not in args.recipe):

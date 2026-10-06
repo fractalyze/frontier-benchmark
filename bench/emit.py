@@ -21,16 +21,18 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from bench import protocol  # noqa: E402
 
 
-def metrics_from(manifest: dict, scores: dict, is_baseline: bool) -> dict:
+def metrics_from(manifest: dict, scores: dict, is_baseline: bool, agree: dict | None = None) -> dict:
     s = scores["summary"]
     if manifest.get("workload") == "speech":
         # latency is time to first audio; vLLM-Omni reserves a fixed share of the card
         # per stage, so there is no peak to report
+        if not is_baseline and agree is None:
+            raise ValueError("a speech recipe needs its agree.json (token disagreement with the baseline)")
         return dict(
             latencyS=round(manifest["ttfa"]["p50"], 3),
             peakVramGb=None,
             lpips=None,
-            wer=None if is_baseline else s["wer"],
+            disagree=None if is_baseline else agree["summary"],
             asrWer=s["asrWer"],
             psnr=None,
             ssim=None,
@@ -48,18 +50,19 @@ def metrics_from(manifest: dict, scores: dict, is_baseline: bool) -> dict:
 
 
 def apply(recipe: dict, benchmark: dict, manifest: dict, scores: dict, *,
-          prompt_set: str, measured_on: str, date: str, engine_version: str | None) -> tuple[dict, dict]:
+          prompt_set: str, measured_on: str, date: str, engine_version: str | None,
+          agree: dict | None = None) -> tuple[dict, dict]:
     """Return updated (recipe, benchmark) documents; inputs are not mutated."""
     if manifest.get("dirty"):
         raise ValueError("run is DIRTY (a foreign process shared the GPU); refusing to publish it")
     if measured_on not in ("public", "held-out"):
         raise ValueError(f"measuredOn must be public or held-out, got {measured_on!r}")
     is_baseline = recipe["id"] == benchmark["baselineRecipe"]
-    if not is_baseline and scores.get("reference") is None:
+    if not is_baseline and manifest.get("workload") != "speech" and scores.get("reference") is None:
         raise ValueError("a non-baseline recipe needs a reference (the baseline run) in its scores")
     recipe = json.loads(json.dumps(recipe))
     benchmark = json.loads(json.dumps(benchmark))
-    recipe["metrics"] = metrics_from(manifest, scores, is_baseline)
+    recipe["metrics"] = metrics_from(manifest, scores, is_baseline, agree)
     recipe["status"] = "Verified" if measured_on == "held-out" else "Submitted"
     recipe["measuredOn"] = measured_on
     recipe["date"] = date
@@ -83,6 +86,8 @@ def main() -> int:
     args = ap.parse_args()
     manifest = json.loads((args.run / "manifest.json").read_text())
     scores = json.loads((args.run / "scores.json").read_text())
+    agree_path = args.run / "agree.json"
+    agree = json.loads(agree_path.read_text()) if agree_path.exists() else None
     bdir = protocol.benchmark_dir(args.model, args.hardware)
     rpath = bdir / "recipes" / f"{args.recipe}.json"
     bpath = bdir / "benchmark.json"
@@ -91,6 +96,7 @@ def main() -> int:
         prompt_set=args.prompt_set, measured_on=args.measured_on, date=args.date,
         engine_version=(manifest.get("engine_commit") or "")[:8]
         or (manifest.get("sglang_commit") or "")[:9] or None,
+        agree=agree,
     )
     rpath.write_text(json.dumps(recipe, indent=2) + "\n")
     bpath.write_text(json.dumps(benchmark, indent=2) + "\n")
