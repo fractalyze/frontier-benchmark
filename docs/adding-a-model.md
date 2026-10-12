@@ -1,7 +1,7 @@
 # Adding a model × hardware page
 
 Scope: how a new benchmark page (one model on one GPU) is created end to end.
-Status: current · updated 2026-10-06.
+Status: current · updated 2026-10-12.
 
 A page has its own protocol, its own baseline and its own recipes. Five
 places change, in the order below; the loader and the tests name whatever is
@@ -24,7 +24,7 @@ and the best template to copy.
 ## 1. Catalogue the model (`src/data/frontier.ts`)
 
 Add the model to `MODELS` with its slug, display name and `workload`
-(`image`, `video`, `speech`). Add the GPU to `HARDWARE` if it is new. A model
+(`image`, `video`, `speech`, `serving`). Add the GPU to `HARDWARE` if it is new. A model
 is hidden on the main page until a benchmark exists for it.
 
 If the workload is new, add it to `WORKLOADS` (section label, caption, quality

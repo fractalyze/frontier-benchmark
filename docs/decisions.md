@@ -1,7 +1,7 @@
 # Decisions
 
 Scope: what was settled, why, and what was rejected. Change a decision in a
-PR that updates this page. Status: current · updated 2026-10-06.
+PR that updates this page. Status: current · updated 2026-10-12.
 
 ## Benchmark
 
@@ -17,8 +17,21 @@ PR that updates this page. Status: current · updated 2026-10-06.
   speech. PSNR, SSIM, ImageReward and a speech page's ASR WER are shown but
   never drive the frontier. Rejected: FID (needs a distribution, not a pair).
 - **Speed axis** = latency of one request. Rejected: throughput and
-  concurrency (without a load level, images/s is just 1/latency). Deferred:
-  serving cost, which would return as its own protocol.
+  concurrency (without a load level, images/s is just 1/latency). Serving cost
+  returned as its own workload (below).
+- **LLM serving is its own workload** (2026-10-12, Gemma 4 26B-A4B): an LLM
+  serving many sessions on one GPU is limited by how many fit at once (KV
+  memory), and its single-request latency barely moves with the recipes that
+  matter (a host KV tier, request caps). Its speed axis is the GPU time a
+  request costs under load: GPU-seconds per request = 1 / (requests/s per GPU)
+  at the highest load level whose E2E p95 meets the page's `slo`, with zero
+  errors and no OOM aborts. Lower is better and the frontier maths is
+  unchanged; the load level is shown, never ranked. The loss is the speech
+  page's forced-decode token disagreement against the baseline's greedy
+  reply. Rejected: tokens/s per GPU (depends on the reply-length mix, which
+  the protocol already fixes); GSM8K accuracy deltas (a benchmark score, not a
+  loss against the baseline, and inside the run-to-run spread for every
+  recipe measured).
 - **Verified means re-measured** by the maintainers on a private held-out
   prompt set that is never committed; `Submitted` means measured on the public
   set by the submitter (definitions in

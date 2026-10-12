@@ -24,6 +24,7 @@ describe("BENCHMARKS (loaded from data/benchmarks via import.meta.glob)", () => 
   it("loads the qwen-image-2.1 / rtx5090 benchmark with its 10 recipes", () => {
     expect(BENCHMARKS.map((b) => `${b.model}/${b.hardware}`)).toEqual([
       "flux-2-klein-4b/rtx5090",
+      "gemma-4-26b-a4b/rtx5090",
       "qwen-image-2.1/rtx5090",
       "qwen3-omni/rtx5090",
     ]);
@@ -53,6 +54,22 @@ describe("BENCHMARKS (loaded from data/benchmarks via import.meta.glob)", () => 
     );
     expect(omni.promptSets["held-out"]).toEqual({ name: "speech-heldout-v1", count: 20 });
     expect(omni.updated).toBe("2026-10-06");
+  });
+
+  it("loads the gemma-4-26b-a4b / rtx5090 serving benchmark with its 3 recipes", () => {
+    const gemma = findBenchmark("gemma-4-26b-a4b", "rtx5090")!;
+    expect(gemma.workload).toBe("serving");
+    expect(gemma.baseline.id).toBe("sglang-native");
+    expect(gemma.recipes.map((r) => r.id)).toEqual([
+      "decode-kernels",
+      "g4poc-hicache-decode-kernels",
+      "sglang-native",
+    ]);
+    expect(gemma.recipes.every((r) => r.status === "Submitted" && r.measuredOn === "public")).toBe(
+      true,
+    );
+    expect(gemma.promptSets["held-out"]).toBeNull();
+    expect(gemma.updated).toBe("2026-10-12");
   });
 
   it("derives baseline and updated", () => {
@@ -93,6 +110,45 @@ describe("lossOf", () => {
     expect(WORKLOADS.speech.quality.name).toBe("Disagreement");
     // shown, never the loss
     expect(kernels.metrics.asrWer).toEqual({ mean: 0.0319, max: 0.3801 });
+  });
+});
+
+describe("serving", () => {
+  const gemma = findBenchmark("gemma-4-26b-a4b", "rtx5090")!;
+  const gk = gemma.recipes.find((r) => r.id === "g4poc-hicache-decode-kernels")!;
+
+  it("ranks GPU-seconds per request and keeps the load level as a shown score", () => {
+    expect(fmtLatency(gemma, gemma.baseline.metrics.latencyS)).toBe("1.45 GPU·s");
+    expect(gk.metrics.load).toEqual({ concurrency: 28, reqPerS: 4.467, p95S: 7.87 });
+    expect(speedup(gemma, gk)).toBeCloseTo(6.48, 2);
+    expect(WORKLOADS.serving.latency.gain).toBe("cheaper");
+    expect(lossOf(gemma, gk)).toBe(0.0451);
+  });
+
+  it("puts every recipe on the frontier and selects within the default limit", () => {
+    expect(paretoFrontier(gemma).map((r) => r.id)).toEqual([
+      "g4poc-hicache-decode-kernels",
+      "decode-kernels",
+      "sglang-native",
+    ]);
+    expect(fastestUnder(gemma, WORKLOADS.serving.quality.defaultLimit)?.id).toBe(
+      "g4poc-hicache-decode-kernels",
+    );
+    expect(fastestUnder(gemma, 0.045)?.id).toBe("decode-kernels");
+  });
+
+  it("rejects a serving benchmark carrying a speech protocol field", () => {
+    const { recipes: rs, baseline: _b, updated: _u, ...file } = gemma;
+    const files = {
+      "x/gemma-4-26b-a4b/rtx5090/benchmark.json": {
+        ...file,
+        protocol: { ...file.protocol, output: "text" },
+      },
+      ...Object.fromEntries(
+        rs.map(({ name: _n, ...r }) => [`x/gemma-4-26b-a4b/rtx5090/recipes/${r.id}.json`, r]),
+      ),
+    };
+    expect(() => buildBenchmarks(files)).toThrow(/protocol/);
   });
 });
 
@@ -208,6 +264,12 @@ describe("protocolRows", () => {
       "Offload",
     ]);
     expect(protocolRows(bench)[0]).toEqual(["Resolution", "1024×1024"]);
+    expect(protocolRows(findBenchmark("gemma-4-26b-a4b", "rtx5090")!)).toEqual([
+      ["Traffic", "multi-turn role-play, en/zh/ja/ko, ~5.4K in, ≤300 out"],
+      ["SLO", "E2E p95 ≤ 10 s"],
+      ["Precision", "FP8 W8A8, FP8 KV"],
+      ["Decoding", "temperature 0.7; greedy for quality"],
+    ]);
     const omni = findBenchmark("qwen3-omni", "rtx5090")!;
     expect(protocolRows(omni)).toEqual([
       ["Output", "text + 24 kHz speech, streamed"],

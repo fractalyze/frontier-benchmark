@@ -64,7 +64,7 @@ export function ModelCard({
           <thead>
             <tr className="text-[10px] tracking-wider text-muted-foreground uppercase">
               <th className="pb-1 pr-3 text-left font-medium">{workload.quality.name}</th>
-              <th className="pb-1 pr-3 text-right font-medium">Latency</th>
+              <th className="pb-1 pr-3 text-right font-medium">{workload.latency.name}</th>
               <th className="pb-1 pr-3 text-right font-medium">Speedup</th>
               <th className="pb-1 text-left font-medium">Recipe</th>
             </tr>
@@ -90,7 +90,7 @@ export function ModelCard({
         </table>
       ) : (
         <p className="mt-3 border-t border-border pt-2 text-[12px] text-muted-foreground">
-          {DASH} no recipe faster than the baseline yet
+          {DASH} no recipe {workload.latency.gain} than the baseline yet
         </p>
       )}
       <div className="mt-auto flex items-center gap-1 pt-3 text-[12px] font-medium text-primary">

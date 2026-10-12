@@ -1,0 +1,27 @@
+{
+  "schema": "sglang-serving",
+  "engine": "SGLang 0.5.21 + three unpublished patches (small-M FP8 GEMM, small-M router, FP8 lm_head)",
+  "checkpoint": "the same FP8 checkpoint loaded text-only (Gemma4ForCausalLM; vision tower not resident)",
+  "env": {
+    "SGLANG_HW_FP8_SMALL_M": "1",
+    "SGLANG_HW_ROUTER_SMALL_M": "1",
+    "SGLANG_HW_FP8_LM_HEAD": "1",
+    "SGLANG_MOE_CONFIG_DIR": "<directory holding the tuned E=128,N=704 sm_120 fp8_w8a8 per-channel config>"
+  },
+  "args": [
+    "--kv-cache-dtype",
+    "fp8_e4m3",
+    "--swa-full-tokens-ratio",
+    "0.25",
+    "--chunked-prefill-size",
+    "1024",
+    "--triton-attention-num-kv-splits",
+    "32",
+    "--mem-fraction-static",
+    "0.94",
+    "--max-running-requests",
+    "16"
+  ],
+  "qualityRunArgs": ["--enable-custom-logit-processor", "--disable-overlap-schedule"],
+  "note": "args go after `python -m sglang.launch_server --model-path <checkpoint>`; the quality run adds qualityRunArgs, which change no kernel"
+}

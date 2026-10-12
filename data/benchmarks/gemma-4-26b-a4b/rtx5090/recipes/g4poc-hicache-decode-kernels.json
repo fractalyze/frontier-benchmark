@@ -1,0 +1,66 @@
+{
+  "id": "g4poc-hicache-decode-kernels",
+  "name": "HiCache stack + decode kernels",
+  "engine": {
+    "name": "SGLang (fractalyze fork) + patches",
+    "version": "a0491db7",
+    "url": "https://github.com/fractalyze/sglang/tree/a0491db7643b6ff7da3e9f904d264185b86be270"
+  },
+  "optimization": [
+    {
+      "technique": "Feature Caching",
+      "method": "HiCache host KV tier"
+    },
+    {
+      "technique": "Stage Scheduling",
+      "method": "longest-prefix-match schedule"
+    },
+    {
+      "technique": "Kernel Optimization",
+      "method": "FP8 KV extend tiles"
+    },
+    {
+      "technique": "Quantization",
+      "method": "FP8 vocab table"
+    },
+    {
+      "technique": "Kernel Optimization",
+      "method": "small-M FP8 weight-only GEMM"
+    },
+    {
+      "technique": "Kernel Optimization",
+      "method": "small-M router GEMM"
+    }
+  ],
+  "configuration": [
+    "12 GB pinned host KV tier per GPU, write-through: sessions evicted from GPU KV are loaded back instead of re-prefilled (--enable-hierarchical-cache --hicache-size 12)",
+    "longest-prefix-match scheduling, chunked prefill 2048 (--schedule-policy lpm)",
+    "Triton extend attention tiles for FP8 KV on sm_120 (SGLANG_OPT_TRITON_EXTEND_SM120_FP8_KV_TILES=1); FP8 embedding/vocab table (SGLANG_OPT_GEMMA4_FP8_VOCAB_TABLE=1)",
+    "text-only checkpoint view; context 16K, --mem-fraction-static 0.955, --max-running-requests 64",
+    "jumanzii's g4poc final stack on fractalyze/sglang a0491db7; alone it is dominated (0.261 GPU·s at c28, 4.69% disagreement), so it is not listed",
+    "plus the small-M FP8 weight-only GEMM for dense decode linears (SGLANG_HW_FP8_SMALL_M=1) and the small-M router GEMM (SGLANG_HW_ROUTER_SMALL_M=1), applied as two patches not published with the fork"
+  ],
+  "configPath": "data/benchmarks/gemma-4-26b-a4b/rtx5090/configs/g4poc-hicache-decode-kernels.json",
+  "metrics": {
+    "latencyS": 0.2239,
+    "peakVramGb": null,
+    "lpips": null,
+    "disagree": {
+      "mean": 0.0451,
+      "max": 0.0846
+    },
+    "load": {
+      "concurrency": 28,
+      "reqPerS": 4.467,
+      "p95S": 7.87
+    },
+    "psnr": null,
+    "ssim": null,
+    "imageReward": null
+  },
+  "status": "Submitted",
+  "measuredOn": "public",
+  "date": "2026-10-06",
+  "sourceUrl": null,
+  "pr": null
+}

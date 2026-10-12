@@ -7,7 +7,9 @@ https://frontier-fractalyze.vercel.app (currently behind Vercel Authentication).
 
 Published pages: Qwen-Image 2.1 × RTX 5090 (10 recipes), FLUX.2 [klein] 4B ×
 RTX 5090 (4 recipes) and Qwen3-Omni × RTX 5090 (speech, 3 recipes), all
-`Verified` on a private held-out set with the harness in `bench/`.
+`Verified` on a private held-out set with the harness in `bench/`; Gemma 4
+26B-A4B × RTX 5090 (LLM serving), `Submitted` on its public prompts from
+measurements outside the harness.
 
 ## Docs
 

@@ -1,7 +1,7 @@
 # Data model
 
 Scope: every field in `data/`, what the loader enforces, and the values the UI
-derives. Status: current · updated 2026-10-06.
+derives. Status: current · updated 2026-10-12.
 
 Everything the site shows comes from JSON files under `data/`. The schema is
 `src/data/schema.ts` (zod); the loader `src/data/frontier.ts` adds the
@@ -18,25 +18,26 @@ data/prompts/<set>.json     # the public prompt/seed pairs a page can be scored 
 
 ## benchmark.json
 
-| field            | meaning                                                                              |
-| ---------------- | ------------------------------------------------------------------------------------ |
-| `model`          | slug from `MODELS` in `src/data/frontier.ts`; must equal the directory name          |
-| `hardware`       | slug from `HARDWARE`; must equal the directory name                                  |
-| `workload`       | `image` / `video` / `speech`; must equal the model's workload in `MODELS`            |
-| `protocol`       | per workload, see below                                                              |
-| `promptSets`     | `public: {name, count, path}` (file in repo) and `held-out: {name, count}` or `null` |
-| `timing`         | one sentence: how latency was taken (the harness writes it)                          |
-| `baselineRecipe` | id of the recipe every other recipe is compared to                                   |
+| field            | meaning                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------- |
+| `model`          | slug from `MODELS` in `src/data/frontier.ts`; must equal the directory name           |
+| `hardware`       | slug from `HARDWARE`; must equal the directory name                                   |
+| `workload`       | `image` / `video` / `speech` / `serving`; must equal the model's workload in `MODELS` |
+| `protocol`       | per workload, see below                                                               |
+| `promptSets`     | `public: {name, count, path}` (file in repo) and `held-out: {name, count}` or `null`  |
+| `timing`         | one sentence: how latency was taken (the harness writes it)                           |
+| `baselineRecipe` | id of the recipe every other recipe is compared to                                    |
 
 ### protocol
 
 The file is a union on `workload`; each workload has its own strict protocol
 and a field from another workload's protocol is rejected.
 
-| workload     | fields                                                                                             |
-| ------------ | -------------------------------------------------------------------------------------------------- |
-| image, video | `version`, `resolution` (`WxH`), `batch`, `steps`, `precision`, `guidance`, `attention`, `offload` |
-| speech       | `version`, `batch`, `precision`, `decoding` (sampling and seed), `output` (what a request returns) |
+| workload     | fields                                                                                                            |
+| ------------ | ----------------------------------------------------------------------------------------------------------------- |
+| image, video | `version`, `resolution` (`WxH`), `batch`, `steps`, `precision`, `guidance`, `attention`, `offload`                |
+| speech       | `version`, `batch`, `precision`, `decoding` (sampling and seed), `output` (what a request returns)                |
+| serving      | `version`, `precision`, `traffic` (the request mix), `decoding`, `slo` (the latency bound a load level must meet) |
 
 `protocolRows` in `src/data/frontier.ts` turns each into the header of the
 benchmark page.
@@ -56,13 +57,19 @@ hard-code a metric name or a scale.
 | image    | `lpips`     | LPIPS        | seconds per image           |
 | video    | `lpips`     | LPIPS        | seconds per clip            |
 | speech   | `disagree`  | Disagreement | milliseconds to first audio |
+| serving  | `disagree`  | Disagreement | GPU-seconds per request     |
 
 Latency is always stored in seconds (`latencyS`); the workload decides how it is
-displayed. The video row is provisional: no page uses it yet.
+displayed. For serving it is not one request's latency but the GPU time a request
+costs at the highest load level that meets the protocol's `slo`: 1 / (requests/s
+per GPU), stored with that level under `load`. The video row is provisional: no
+page uses it yet.
 
-**Disagreement** (speech) is the share of the baseline's reply tokens that the
+**Disagreement** (speech, serving) is the share of the baseline's reply tokens that the
 recipe's own greedy decode would have chosen differently, with the baseline's
-reply forced through the recipe one token per step (`bench/agree.py`). `mean` is
+reply forced through the recipe one token per step (`bench/agree.py`; serving: an
+SGLang custom logit processor that records each step's greedy token, then forces
+the baseline's). `mean` is
 over every forced token of every prompt, `max` the worst prompt; both are
 fractions shown as percentages (`0.0188` is 1.88%). Every loss is nonnegative,
 so the loss axis starts at zero and the frontier ends at the baseline.
@@ -96,16 +103,17 @@ adding one is described in
 
 ### metrics
 
-| key           | meaning                                                                                                           |
-| ------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `latencyS`    | seconds per request, single request at a time, median after warmup, model loaded once                             |
-| `peakVramGb`  | engine-reported peak allocated memory over the timed requests, or `null`                                          |
-| `lpips`       | `{mean, max}` LPIPS(alex) vs the baseline output for the same prompt and seed; the image/video quality axis       |
-| `disagree`    | `{mean, max}` token disagreement with the baseline (see Workloads); the speech quality axis (optional key)        |
-| `asrWer`      | `{mean, max}` ASR WER of each reply's audio vs its own text, baseline included; speech, shown only (optional key) |
-| `psnr`        | `{mean, min}` dB vs the baseline image, or `null`                                                                 |
-| `ssim`        | `{mean}` vs the baseline image, or `null`                                                                         |
-| `imageReward` | `{mean}` ImageReward-v1.0 of the recipe's own images, absolute, or `null`                                         |
+| key           | meaning                                                                                                                |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `latencyS`    | seconds per request, single request at a time, median after warmup, model loaded once                                  |
+| `peakVramGb`  | engine-reported peak allocated memory over the timed requests, or `null`                                               |
+| `lpips`       | `{mean, max}` LPIPS(alex) vs the baseline output for the same prompt and seed; the image/video quality axis            |
+| `disagree`    | `{mean, max}` token disagreement with the baseline (see Workloads); the speech and serving quality axis (optional key) |
+| `load`        | `{concurrency, reqPerS, p95S}` the load level a serving recipe's speed was taken at; shown only (optional key)         |
+| `asrWer`      | `{mean, max}` ASR WER of each reply's audio vs its own text, baseline included; speech, shown only (optional key)      |
+| `psnr`        | `{mean, min}` dB vs the baseline image, or `null`                                                                      |
+| `ssim`        | `{mean}` vs the baseline image, or `null`                                                                              |
+| `imageReward` | `{mean}` ImageReward-v1.0 of the recipe's own images, absolute, or `null`                                              |
 
 The baseline is compared to itself, so its quality keys are `null` and render
 as "—"; it still has `latencyS`, `peakVramGb` and `imageReward`.

@@ -1,0 +1,68 @@
+{
+  "id": "decode-kernels",
+  "name": "Decode kernels",
+  "engine": {
+    "name": "SGLang + patches",
+    "version": "0.5.21",
+    "url": null
+  },
+  "optimization": [
+    {
+      "technique": "Kernel Optimization",
+      "method": "small-M FP8 weight-only GEMM"
+    },
+    {
+      "technique": "Kernel Optimization",
+      "method": "small-M router GEMM"
+    },
+    {
+      "technique": "Kernel Optimization",
+      "method": "tuned fused-MoE tiles"
+    },
+    {
+      "technique": "Kernel Optimization",
+      "method": "decode attention KV split 32"
+    },
+    {
+      "technique": "Quantization",
+      "method": "FP8 tied lm_head"
+    },
+    {
+      "technique": "Stage Scheduling",
+      "method": "running-request cap"
+    }
+  ],
+  "configuration": [
+    "dense decode linears at M ≤ 32 read FP8 weight tiles and accumulate in FP32 instead of quantizing activations per token (SGLANG_HW_FP8_SMALL_M=1)",
+    "the MoE router GEMM at M = 2–4 on the same kernel instead of cuBLAS's SM80 fallback (SGLANG_HW_ROUTER_SMALL_M=1)",
+    "fused-MoE tiles tuned for E=128, N=704 on sm_120 at M ≤ 128, SGLang's default above (SGLANG_MOE_CONFIG_DIR)",
+    "the tied 1.48 GB embedding/lm_head stored once in FP8 (SGLANG_HW_FP8_LM_HEAD=1)",
+    "text-only checkpoint view: the vision tower's 1.15 GB goes to KV",
+    "--max-running-requests 16 frees the 2.1 GB request table sized for 2,048 requests; --mem-fraction-static 0.94 gives it to KV",
+    "--triton-attention-num-kv-splits 32",
+    "the three patches on SGLang 0.5.21 are not published"
+  ],
+  "configPath": "data/benchmarks/gemma-4-26b-a4b/rtx5090/configs/decode-kernels.json",
+  "metrics": {
+    "latencyS": 0.2848,
+    "peakVramGb": null,
+    "lpips": null,
+    "disagree": {
+      "mean": 0.0447,
+      "max": 0.1005
+    },
+    "load": {
+      "concurrency": 16,
+      "reqPerS": 3.511,
+      "p95S": 5.86
+    },
+    "psnr": null,
+    "ssim": null,
+    "imageReward": null
+  },
+  "status": "Submitted",
+  "measuredOn": "public",
+  "date": "2026-10-06",
+  "sourceUrl": null,
+  "pr": null
+}

@@ -17,7 +17,7 @@ export const TECHNIQUES = [
 ] as const;
 export const STATUSES = ["Verified", "Submitted", "Experimental"] as const;
 /** What a benchmark's output is; decides the quality and latency axes (see WORKLOADS). */
-export const WORKLOAD_SLUGS = ["image", "video", "speech"] as const;
+export const WORKLOAD_SLUGS = ["image", "video", "speech", "serving"] as const;
 export const MEASURED_ON = ["public", "held-out"] as const;
 
 const slug = z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "expected a slug");
@@ -64,6 +64,20 @@ const speechProtocol = z
   })
   .strict();
 
+/** How an LLM is served under load: requests arrive from many sessions at once. */
+const servingProtocol = z
+  .object({
+    version: text,
+    precision: text,
+    /** The request mix, e.g. "multi-turn role-play, ~5.4K in, ≤300 out". */
+    traffic: text,
+    /** Sampling under load, and for the quality run. */
+    decoding: text,
+    /** The latency bound a load level must meet to count, e.g. "E2E p95 ≤ 10 s". */
+    slo: text,
+  })
+  .strict();
+
 const benchmarkFields = {
   model: text,
   hardware: text,
@@ -87,6 +101,9 @@ export const BenchmarkFileSchema = z.discriminatedUnion("workload", [
   z
     .object({ ...benchmarkFields, workload: z.literal("speech"), protocol: speechProtocol })
     .strict(),
+  z
+    .object({ ...benchmarkFields, workload: z.literal("serving"), protocol: servingProtocol })
+    .strict(),
 ]);
 
 export const RecipeFileSchema = z
@@ -100,15 +117,23 @@ export const RecipeFileSchema = z
     configPath: repoPath.nullable(),
     metrics: z
       .object({
+        /** Seconds on the workload's speed axis: one request's latency, or for serving the
+            GPU-seconds a request costs at the load the protocol allows (1 / req/s per GPU). */
         latencyS: pos,
         peakVramGb: pos.nullable(),
         /** Image / video quality loss vs the baseline output (mean and max over the set). */
         lpips: z.object({ mean: nonneg, max: nonneg }).strict().nullable(),
         /**
-         * Speech quality loss vs the baseline: the baseline's replies forced through the recipe's
+         * Speech and serving quality loss vs the baseline: the baseline's replies forced through the recipe's
          * decode, the share of tokens where the recipe's own greedy choice differs (bench/agree.py).
          */
         disagree: z.object({ mean: nonneg, max: nonneg }).strict().nullable().optional(),
+        /** Serving, shown only: the load level the speed axis was taken at. */
+        load: z
+          .object({ concurrency: posInt, reqPerS: pos, p95S: pos })
+          .strict()
+          .nullable()
+          .optional(),
         /** Speech intelligibility, shown only: ASR WER of each reply's audio vs its own text. */
         asrWer: z.object({ mean: nonneg, max: nonneg }).strict().nullable().optional(),
         psnr: z.object({ mean: pos, min: pos }).strict().nullable(),
