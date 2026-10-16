@@ -17,7 +17,7 @@ export const Route = createFileRoute("/")({
       {
         property: "og:description",
         content:
-          "The best measured latency-quality tradeoffs for generative image, video and speech inference.",
+          "The best measured latency-quality tradeoffs for generative image, video, speech and LLM serving inference.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -32,8 +32,8 @@ const METHOD = [
     (w) => `${WORKLOADS[w].quality.name} for ${w}`,
   ).join(
     ", ",
-  )}. Speech forces the baseline's reply through the recipe and counts the tokens it would have chosen differently.`,
-  "Speed: latency of a single request, median after warmup — seconds per image or clip, milliseconds to first audio for speech.",
+  )}. Speech and serving force the baseline's reply through the recipe and counts the tokens it would have chosen differently.`,
+  "Speed: latency of a single request, median after warmup — seconds per image or clip, milliseconds to first audio for speech. LLM serving is measured under load instead: GPU-seconds per request at the highest load that meets the page's latency bound.",
   "Verified: re-measured by the maintainers on a private held-out prompt set.",
 ];
 
@@ -64,7 +64,8 @@ function Index() {
         </div>
         <p className="mt-5 text-muted-foreground">
           for the quality loss ε you choose — LPIPS for image and video, token disagreement with the
-          baseline's reply for speech.
+          baseline's reply for speech and LLM serving. For serving, latency is the GPU time a
+          request costs under load.
         </p>
       </section>
 

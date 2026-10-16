@@ -185,3 +185,47 @@ describe("ResultsTable on the speech page", () => {
     expect(within(dialog).getByText("Verified")).toBeInTheDocument();
   });
 });
+
+describe("ResultsTable on the serving page", () => {
+  const gemma = findBenchmark("gemma-4-26b-a4b", "rtx5090")!;
+  const renderGemma = (openId: string | null = null) =>
+    render(
+      <ResultsTable
+        bench={gemma}
+        limit={0.05}
+        selectedId={null}
+        openId={openId}
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+  it("heads the speed column GPU time and shows GPU-seconds per request", () => {
+    renderGemma();
+    expect(screen.getByRole("columnheader", { name: "GPU time" })).toBeInTheDocument();
+    const rows = screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((r) =>
+        within(r)
+          .getAllByRole("cell")
+          .slice(0, 3)
+          .map((c) => c.textContent),
+      );
+    expect(rows).toEqual([
+      ["0.22 GPU·s", "4.51%", "6.5×"],
+      ["0.28 GPU·s", "4.47%", "5.1×"],
+      ["1.45 GPU·s", "—", "1.0×"],
+    ]);
+  });
+
+  it("shows the load level in the detail dialog and says cheaper, not faster", () => {
+    renderGemma("g4poc-hicache-decode-kernels");
+    const dialog = screen.getByRole("dialog");
+    expect(cellOf("Load")).toHaveTextContent("4.47 req/s");
+    expect(within(dialog).getByText("c28, E2E p95 7.9 s")).toBeInTheDocument();
+    expect(within(dialog).getByText("6.5× cheaper than baseline")).toBeInTheDocument();
+    for (const label of ["ImageReward", "ASR WER", "PSNR"])
+      expect(within(dialog).queryByText(label)).toBeNull();
+  });
+});

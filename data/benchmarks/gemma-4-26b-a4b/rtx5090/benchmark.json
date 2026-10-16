@@ -1,0 +1,22 @@
+{
+  "model": "gemma-4-26b-a4b",
+  "hardware": "rtx5090",
+  "workload": "serving",
+  "protocol": {
+    "version": "v0.1",
+    "precision": "FP8 W8A8, FP8 KV",
+    "traffic": "multi-turn role-play, en/zh/ja/ko, ~5.4K in, ≤300 out",
+    "decoding": "temperature 0.7; greedy for quality",
+    "slo": "E2E p95 ≤ 10 s"
+  },
+  "promptSets": {
+    "public": {
+      "name": "roleplay-v1",
+      "count": 24,
+      "path": "data/prompts/gemma4-roleplay-v1.json"
+    },
+    "held-out": null
+  },
+  "timing": "GPU-seconds per request = 1 / requests/s on one GPU at the recipe's highest load level with E2E p95 ≤ 10 s and no errors: closed-loop sessions from a WildChat-1M-based role-play workload (think time 0, non-streaming), 60 s warmup then one 180 s window per level; every recipe on one RTX 5090 on a PCIe Gen4 x4 link, the baseline on 2026-10-12 and the others on 2026-10-06",
+  "baselineRecipe": "sglang-native"
+}

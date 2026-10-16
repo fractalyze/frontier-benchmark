@@ -69,9 +69,13 @@ export interface Workload {
     limitMin: number;
   };
   /** Which shown-only scores the recipe dialog has tiles for: PSNR, SSIM and ImageReward for
-      an image or a clip, ASR WER for speech. */
-  scores: "image" | "speech";
+      an image or a clip, ASR WER for speech, the load level for serving. */
+  scores: "image" | "speech" | "serving";
   latency: {
+    /** Column and tile label. */
+    name: string;
+    /** What a lower value is: "faster" (latency) or "cheaper" (serving cost). */
+    gain: "faster" | "cheaper";
     /** Chart axis label. */
     axis: string;
     fmt: (seconds: number) => string;
@@ -93,7 +97,30 @@ const IMAGE_SCALE = {
   axis: "Quality loss (LPIPS)",
   tick: (v: number) => fmtLpips(v),
 };
-const SECONDS_AXIS = { axis: "E2E latency (s)", fmt: fmtSeconds, step: 2, tick: String };
+const SECONDS_AXIS = {
+  name: "Latency",
+  gain: "faster",
+  axis: "E2E latency (s)",
+  fmt: fmtSeconds,
+  step: 2,
+  tick: String,
+} as const;
+/** The speech and serving loss: token disagreement on a percent scale. */
+const DISAGREE = {
+  key: "disagree",
+  name: "Disagreement",
+  fmt: (v: number | null | undefined) => fmtPct(v),
+  axis: "Quality loss (token disagreement, %)",
+  // ticks every half percent: "0.5%", "1%"
+  tick: (v: number) => `${+(v * 100).toFixed(1)}%`,
+  // a few percent of tokens at most for a kernel or scheduling change
+  step: 0.005,
+  span: 0.03,
+  defaultLimit: 0.02,
+  limitStep: 0.001,
+  digits: 4,
+  limitMin: 0.001,
+} as const;
 
 export const WORKLOADS: Record<WorkloadSlug, Workload> = {
   image: {
@@ -129,28 +156,43 @@ export const WORKLOADS: Record<WorkloadSlug, Workload> = {
     label: "Speech models",
     caption: "ms to first audio · token disagreement vs baseline",
     quality: {
-      key: "disagree",
-      name: "Disagreement",
+      ...DISAGREE,
       method:
         "the baseline's reply forced through the recipe's own decode, token by token: the share of tokens where the recipe's greedy choice differs. ASR WER of the audio is shown, never ranked.",
-      fmt: (v) => fmtPct(v),
-      axis: "Quality loss (token disagreement, %)",
-      // ticks every half percent: "0.5%", "1%"
-      tick: (v) => `${+(v * 100).toFixed(1)}%`,
-      // a few percent of tokens at most for a kernel or scheduling change
-      step: 0.005,
-      span: 0.03,
-      defaultLimit: 0.02,
-      limitStep: 0.001,
-      digits: 4,
-      limitMin: 0.001,
     },
     scores: "speech",
     latency: {
+      name: "Latency",
+      gain: "faster",
       axis: "Time to first audio (ms)",
       fmt: fmtMillis,
       step: 0.025,
       tick: (s) => String(Math.round(s * 1000)),
+    },
+  },
+  serving: {
+    slug: "serving",
+    label: "LLM serving",
+    caption: "GPU-seconds per request under load · token disagreement vs baseline",
+    quality: {
+      ...DISAGREE,
+      method:
+        "the baseline's greedy reply forced through the recipe's own decode, token by token: the share of tokens where the recipe's greedy choice differs.",
+      // FP8 lm_head and decode kernels move ~4-5% of a reply's greedy tokens
+      tick: (v) => `${+(v * 100).toFixed(0)}%`,
+      step: 0.01,
+      span: 0.06,
+      defaultLimit: 0.05,
+      limitStep: 0.0025,
+    },
+    scores: "serving",
+    latency: {
+      name: "GPU time",
+      gain: "cheaper",
+      axis: "GPU-seconds per request",
+      fmt: (s) => `${s.toFixed(2)} GPU·s`,
+      step: 0.25,
+      tick: (s) => String(+s.toFixed(2)),
     },
   },
 };
@@ -172,6 +214,7 @@ export const MODELS: ModelInfo[] = [
   { slug: "wan", name: "Wan", workload: "video" },
   { slug: "ltx", name: "LTX", workload: "video" },
   { slug: "qwen3-omni", name: "Qwen3-Omni", workload: "speech" },
+  { slug: "gemma-4-26b-a4b", name: "Gemma 4 26B-A4B", workload: "serving" },
 ];
 
 export const HARDWARE: HardwareInfo[] = [
@@ -288,6 +331,9 @@ export const lossOf = (b: Benchmark, rec: Recipe) =>
   rec.metrics[workloadOf(b).quality.key]?.mean ?? 0;
 export const fmtLoss = (b: Benchmark, v: number | null | undefined) => workloadOf(b).quality.fmt(v);
 export const fmtLatency = (b: Benchmark, seconds: number) => workloadOf(b).latency.fmt(seconds);
+/** "Fastest" for a latency axis, "Cheapest" for serving cost. */
+export const bestWord = (b: Benchmark) =>
+  workloadOf(b).latency.gain === "faster" ? "Fastest" : "Cheapest";
 
 export const speedup = (b: Benchmark, rec: Recipe) =>
   b.baseline.metrics.latencyS / rec.metrics.latencyS;
@@ -321,6 +367,15 @@ export const fmtPct = (v: number | null | undefined) => (v ? `${(v * 100).toFixe
 
 /** The protocol as label/value pairs for the benchmark page header; each workload has its own. */
 export function protocolRows(b: Benchmark): [string, string | number][] {
+  if (b.workload === "serving") {
+    const s = b.protocol;
+    return [
+      ["Traffic", s.traffic],
+      ["SLO", s.slo],
+      ["Precision", s.precision],
+      ["Decoding", s.decoding],
+    ];
+  }
   if (b.workload === "speech") {
     const s = b.protocol;
     return [

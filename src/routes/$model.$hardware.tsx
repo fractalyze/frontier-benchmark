@@ -1,6 +1,7 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 import {
+  bestWord,
   fastestUnder,
   findBenchmark,
   fmtLatency,
@@ -112,19 +113,20 @@ function BenchmarkPage({ bench }: { bench: Benchmark }) {
         <div className="mt-3 border-t border-border pt-4">
           <p className="text-[12px] text-muted-foreground">
             Drag the dashed line (or focus its grip and use the arrow keys) to set the quality
-            limit. The fastest recipe within it is selected; recipes above it are greyed out.
+            limit. The {bestWord(bench).toLowerCase()} recipe within it is selected; recipes above
+            it are greyed out.
           </p>
           {selected ? (
             <div className="mt-3 border-l-2 border-primary bg-surface-alt py-3 pr-4 pl-4">
               <div className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-                Fastest within {quality.name} ≤ {fmtLoss(bench, limit)}
+                {bestWord(bench)} within {quality.name} ≤ {fmtLoss(bench, limit)}
               </div>
               <div className="mt-1 flex flex-wrap items-baseline gap-x-5 gap-y-1">
                 <span className="text-[20px] font-semibold tracking-tight">{selected.name}</span>
                 <span className="num text-[16px]">
                   {fmtLatency(bench, selected.metrics.latencyS)}
                   <span className="text-muted-foreground"> · </span>
-                  {speedup(bench, selected).toFixed(1)}× faster
+                  {speedup(bench, selected).toFixed(1)}× {workloadOf(bench).latency.gain}
                   <span className="text-muted-foreground"> · </span>
                   {quality.name} {fmtLoss(bench, lossOf(bench, selected))}
                 </span>

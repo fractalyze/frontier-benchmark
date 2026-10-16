@@ -116,9 +116,13 @@ function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
       {/* the numbers the frontier is drawn from */}
       <dl className="grid grid-cols-3 gap-5">
         <Tile
-          label="Latency"
+          label={workload.latency.name}
           value={fmtLatency(bench, m.latencyS)}
-          sub={isBaseline ? "reference" : `${speedup(bench, r).toFixed(1)}× faster than baseline`}
+          sub={
+            isBaseline
+              ? "reference"
+              : `${speedup(bench, r).toFixed(1)}× ${workload.latency.gain} than baseline`
+          }
         />
         <Tile
           label={`${quality.name} mean`}
@@ -134,6 +138,12 @@ function Detail({ bench, r }: { bench: Benchmark; r: Recipe }) {
                 ? "absolute, prompt vs image"
                 : `baseline ${base.imageReward ? base.imageReward.mean.toFixed(2) : DASH}`
             }
+          />
+        ) : workload.scores === "serving" ? (
+          <Tile
+            label="Load"
+            value={m.load ? `${m.load.reqPerS.toFixed(2)} req/s` : DASH}
+            sub={m.load ? `c${m.load.concurrency}, E2E p95 ${m.load.p95S.toFixed(1)} s` : undefined}
           />
         ) : (
           <Tile
@@ -278,7 +288,7 @@ export function ResultsTable({
       <table className="w-full min-w-[640px] border-collapse text-[13px]">
         <thead>
           <tr className="border-b border-border-strong text-left">
-            <th className={cn(th, "pl-4 text-right")}>Latency</th>
+            <th className={cn(th, "pl-4 text-right")}>{workloadOf(bench).latency.name}</th>
             <th className={cn(th, "text-right")}>{workloadOf(bench).quality.name}</th>
             <th className={cn(th, "text-right")}>Speedup</th>
             <th className={th}>Recipe</th>

@@ -378,7 +378,8 @@ export function ParetoFigure({
           <div className="max-w-64 font-medium">{hover.name}</div>
           <div className="num mt-1 text-muted-foreground">
             {fmtLatency(bench, hover.metrics.latencyS)} · {workload.quality.name}{" "}
-            {fmtLoss(bench, loss(hover))} · {speedup(bench, hover).toFixed(1)}× faster
+            {fmtLoss(bench, loss(hover))} · {speedup(bench, hover).toFixed(1)}×{" "}
+            {workload.latency.gain}
           </div>
         </div>
       )}
